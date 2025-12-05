@@ -27,17 +27,46 @@
 
 ## Current Status
 
-**Phase 2: Combat System - COMPLETE** ✅
+**Phase 6: Meta Progression - IMPLEMENTED** 🔧
 
-Phase 2 adds deep combat mechanics with weapon variety, enemy types, and skill-rewarding systems:
+All core systems have been implemented and are ready for integration testing. See the [docs/](docs/) folder for detailed documentation on each phase.
 
-- ✅ Three distinct weapons (Swift Daggers, Memory Blade, Shatter Hammer)
-- ✅ Three enemy types (Slime, Bat, Rat) with unique behaviors
-- ✅ Projectile system (player and enemy projectiles)
-- ✅ Kill streak bonuses (+2s to +20s for consecutive kills)
-- ✅ Combo system with multipliers
-- ✅ Manual dash/dodge with i-frames
-- ✅ Continuous enemy respawning
+### Implemented Phases
+
+| Phase | Status | Summary |
+|-------|--------|---------|
+| **Phase 1: Foundation** | ✅ Complete | Playable dungeon with timer mechanic |
+| **Phase 2: Combat** | ✅ Complete | Weapons, combos, enemy variety |
+| **Phase 3: Floor Themes** | 🔧 Implemented | 2 biomes (Verdant Ruins, Frozen Archive), hazard system |
+| **Phase 4: Relics** | 🔧 Implemented | 6 relics with passives/actives, selection UI |
+| **Phase 5: Shadow** | 🔧 Implemented | Corruption system, Shadow Pursuer entity |
+| **Phase 6: Meta** | 🔧 Implemented | Save system, Hub scene, 4 upgrades |
+
+### Phase Highlights
+
+**Phase 3: Floor Themes** ([docs](docs/phase-3-floor-themes.md))
+- Floor theme system with color palettes and enemy modifiers
+- Hazard system with overgrowth (slow) and ice tiles (slide)
+- 49 new tests
+
+**Phase 4: Relic System** ([docs](docs/phase-4-relic-system.md))
+- 6 relics with passive effects and active abilities
+- Relic selection UI with modal overlay
+- HUD integration with cooldown visualization
+- 61 new tests
+
+**Phase 5: Shadow System** ([docs](docs/phase-5-shadow-system.md))
+- Corruption meter (0-100) with threshold effects
+- Shadow Pursuer spawns at 100% corruption
+- Time drain increases at 50% corruption
+- 32 new tests
+
+**Phase 6: Meta Progression** ([docs](docs/phase-6-meta-progression.md))
+- Memory Shard economy (earn during runs, spend in hub)
+- LocalStorage persistence with save versioning
+- Hub Scene with upgrade shrine
+- 4 permanent upgrades (time, combat, survival, relic)
+- 41 new tests
 
 ### Controls
 
@@ -118,12 +147,17 @@ npm run dev
 
 - [x] **Phase 1: Foundation** - Playable dungeon with timer mechanic ✅
 - [x] **Phase 2: Combat** - Weapons, combos, enemy variety ✅
-- [ ] **Phase 3: Floor Themes** - 5 distinct biomes with hazards
-- [ ] **Phase 4: Relics** - Build variety through relic combinations
-- [ ] **Phase 5: The Shadow** - Corruption system and pursuer
-- [ ] **Phase 6: Meta Progression** - Between-run upgrades
+- [x] **Phase 3: Floor Themes** - 2 biomes with hazards 🔧 *Integration pending*
+- [x] **Phase 4: Relics** - 6 relics with passives/actives 🔧 *Integration pending*
+- [x] **Phase 5: The Shadow** - Corruption system and pursuer 🔧 *Integration pending*
+- [x] **Phase 6: Meta Progression** - Hub scene, save system, upgrades 🔧 *Integration pending*
 - [ ] **Phase 7: Polish** - Juice, audio, accessibility
+
+**Legend:** ✅ Complete & Integrated | 🔧 Implemented, awaiting integration
+
+**Test Coverage:** 170 base + 183 new = 353 total tests
 
 ## License
 
 MIT
+
