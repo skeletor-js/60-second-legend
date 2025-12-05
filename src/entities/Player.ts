@@ -185,7 +185,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     if (this.body) {
       const body = this.body as Phaser.Physics.Arcade.Body;
       body.setCollideWorldBounds(true);
-      body.setSize(DISPLAY.TILE_SIZE, DISPLAY.TILE_SIZE);
+      // Use smaller hitbox to avoid wall clipping at tile boundaries
+      const hitboxSize = 12;
+      const offset = (DISPLAY.TILE_SIZE - hitboxSize) / 2;
+      body.setSize(hitboxSize, hitboxSize);
+      body.setOffset(offset, offset);
     }
   }
 

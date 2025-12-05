@@ -367,3 +367,84 @@ npm test:coverage # Coverage report
 - All SGQ sprites loaded and ready to use (walls, floors, enemies, weapons, UI)
 - Tilesets loaded as spritesheets for proper tile extraction
 - Audio will be sourced during Phase 2 (placeholder/free assets)
+
+---
+
+## Known Bugs (Active Debugging)
+
+### Bug 1: Player Spawns in Walls
+**Status:** Under investigation
+**Symptom:** Player sometimes spawns inside a wall tile and cannot move.
+
+### Bug 2: Invisible Wall Halfway Down Screen
+**Status:** Under investigation
+**Symptom:** Player hits an invisible collision barrier approximately halfway down the screen, regardless of horizontal position. The floor tiles are visible but the player cannot pass.
+
+---
+
+## Debugging Configuration
+
+Debug logging is enabled in `GameScene.ts`. Open browser console (F12) when playing to see:
+
+### Console Output on Game Start:
+```
+=== DUNGEON DEBUG ===
+Dimensions: 60x40 (2400 total tiles)
+Floor tiles: XXX (XX.X%)
+Wall tiles: XXX (XX.X%)
+Rooms: XX
+Entrance room: {id, x, y, width, height, centerX, centerY, type, connections}
+Entrance room center tile value: 1 (should be 1 for floor)
+Entrance room bounds: XX floors, XX walls
+
+=== SPAWN DEBUG ===
+Entrance room: {...}
+Spawn position (tile): {x: XX, y: XX}
+Spawn position (pixel): {x: XXX, y: XXX}
+Tile at spawn: 1 (should be 1 for floor)
+3x3 area around spawn:
+...  (. = floor, # = wall)
+...
+...
+
+=== COLLISION LAYER DEBUG ===
+Wall layer dimensions: 60 x 40
+Tilemap dimensions: 60 x 40
+Tiles with collision enabled: XXXX
+Expected wall tiles: XXXX (these should match!)
+
+=== PLAYER BODY DEBUG ===
+Body size: 12 x 12
+Body offset: 2, 2
+World bounds: XXX x XXX
+```
+
+### Console Output During Gameplay:
+```
+[Frame 60] Player pos: (XXX.X, XXX.X) | Tile: (XX, XX) = FLOOR | Blocked: L=false R=false U=false D=false
+BLOCKED! Pos: (XXX.X, XXX.X) | Tile: (XX, XX) | L=true R=false U=false D=false
+```
+
+### Key Things to Check:
+1. **"Tiles with collision enabled" vs "Expected wall tiles"** - These MUST match. If collision tiles > expected walls, there's a collision layer bug.
+2. **"Tile at spawn"** - Must be 1 (floor). If 0, player spawns in wall.
+3. **"3x3 area around spawn"** - Should be all dots (floors). If any #, player hitbox overlaps wall.
+4. **"BLOCKED!" messages** - Check tile position when blocked. If tile = FLOOR but blocked = true, collision layer is wrong.
+
+### Attempted Fixes (Not Working):
+1. Changed `setCollisionByExclusion([-1])` to `setCollision([1])` - Should only collide with tile ID 1
+2. Added `isWalkableArea()` to check 3x3 area around spawn position
+3. Added `updateRoomFloorCenters()` to find actual floor tile for room centers
+4. Increased `dugPercentage` from 0.2 to 0.4 for more floor tiles
+5. Added 12.5% minimum floor coverage validation
+
+### Files Modified for Debugging:
+- `src/scenes/GameScene.ts` - Added debug logging in create(), createTilemap(), and updateDebugOverlay()
+- `src/systems/DungeonGenerator.ts` - Added updateRoomFloorCenters() and findFloorCenter()
+
+### To Reproduce:
+1. Run `npm run dev`
+2. Open http://localhost:3000
+3. Press F12 to open browser console
+4. Click "Start Game"
+5. Copy/paste the console output to diagnose issues

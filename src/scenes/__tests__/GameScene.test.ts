@@ -13,7 +13,7 @@ import { Player } from '@entities/Player';
 import { HUD } from '@ui/HUD';
 import Phaser from 'phaser';
 
-// Mock Phaser.Math.Between and Container methods before tests run
+// Mock Phaser.Math.Between, Input.Keyboard, and Container methods before tests run
 beforeAll(() => {
   if (!Phaser.Math) {
     (Phaser as any).Math = {};
@@ -21,6 +21,20 @@ beforeAll(() => {
   Phaser.Math.Between = vi.fn((min: number, max: number) => {
     return Math.floor((min + max) / 2);
   });
+
+  // Mock Phaser.Input.Keyboard.KeyCodes
+  if (!Phaser.Input) {
+    (Phaser as any).Input = {};
+  }
+  if (!Phaser.Input.Keyboard) {
+    (Phaser.Input as any).Keyboard = {};
+  }
+  (Phaser.Input.Keyboard as any).KeyCodes = {
+    W: 87,
+    A: 65,
+    S: 83,
+    D: 68,
+  };
 
   // Mock Container methods that HUD uses
   if (Phaser.GameObjects?.Container?.prototype) {
@@ -53,6 +67,8 @@ class MockScene {
     },
     world: {
       isPaused: false,
+      setBounds: vi.fn(),
+      bounds: { width: 960, height: 640 },
     },
     pause: vi.fn(function(this: any) { this.world.isPaused = true; }),
     resume: vi.fn(function(this: any) { this.world.isPaused = false; }),
@@ -75,13 +91,19 @@ class MockScene {
         setCollision: vi.fn(),
         setDepth: vi.fn(),
         forEachTile: vi.fn(),
+        getTileAt: vi.fn(() => null),
+        width: 60,
+        height: 40,
       })),
       createLayer: vi.fn(() => null),
+      width: 60,
+      height: 40,
     })),
   };
   add = {
     existing: vi.fn(),
     rectangle: vi.fn(() => ({
+      setOrigin: vi.fn().mockReturnThis(),
       setScrollFactor: vi.fn().mockReturnThis(),
       setDepth: vi.fn().mockReturnThis(),
       setName: vi.fn().mockReturnThis(),
@@ -98,11 +120,18 @@ class MockScene {
       setOrigin: vi.fn().mockReturnThis(),
       setAlpha: vi.fn().mockReturnThis(),
       setScrollFactor: vi.fn().mockReturnThis(),
+      setDepth: vi.fn().mockReturnThis(),
+      setFrame: vi.fn().mockReturnThis(),
+      setRotation: vi.fn().mockReturnThis(),
+      destroy: vi.fn(),
     })),
     graphics: vi.fn(() => ({
       fillStyle: vi.fn(),
       fillRect: vi.fn(),
       setDepth: vi.fn(),
+    })),
+    circle: vi.fn(() => ({
+      setDepth: vi.fn().mockReturnThis(),
     })),
   };
   time = {
@@ -111,6 +140,7 @@ class MockScene {
   };
   tweens = {
     add: vi.fn(),
+    addCounter: vi.fn(),
   };
   input = {
     keyboard: {
@@ -121,6 +151,12 @@ class MockScene {
         right: { isDown: false },
         up: { isDown: false },
         down: { isDown: false },
+      })),
+      addKeys: vi.fn(() => ({
+        W: { isDown: false },
+        A: { isDown: false },
+        S: { isDown: false },
+        D: { isDown: false },
       })),
     },
   };

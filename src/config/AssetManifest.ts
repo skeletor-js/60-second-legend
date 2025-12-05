@@ -126,6 +126,12 @@ export const SPRITE_SHEETS: SpriteSheetConfig[] = [
     frameWidth: 16,
     frameHeight: 16,
   },
+  {
+    key: 'tileset-surround',
+    path: 'assets/SGQ_Dungeon/grounds_and_walls/surground.png',
+    frameWidth: 16,
+    frameHeight: 16,
+  },
 ];
 
 // =============================================================================

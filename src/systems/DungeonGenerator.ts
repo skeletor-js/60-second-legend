@@ -41,10 +41,32 @@ export interface DungeonData {
 export class DungeonGenerator {
   /**
    * Generates a dungeon based on the provided configuration.
+   * Will retry generation if validation fails.
    * @param config - Optional configuration for dungeon dimensions and room count
    * @returns DungeonData containing tiles and room information
    */
   public generate(config?: DungeonConfig): DungeonData {
+    const maxAttempts = 10;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const result = this.generateAttempt(config);
+
+      if (this.validateDungeon(result)) {
+        return result;
+      }
+
+      console.warn(`Dungeon generation attempt ${attempt + 1} failed validation, retrying...`);
+    }
+
+    // If all attempts fail, return the last attempt anyway
+    console.error('All dungeon generation attempts failed validation');
+    return this.generateAttempt(config);
+  }
+
+  /**
+   * Single attempt at generating a dungeon
+   */
+  private generateAttempt(config?: DungeonConfig): DungeonData {
     const width = config?.width ?? 60;
     const height = config?.height ?? 40;
     const roomCount = config?.roomCount ?? { min: 10, max: 12 };
@@ -54,6 +76,7 @@ export class DungeonGenerator {
       roomWidth: [3, 9],
       roomHeight: [3, 9],
       corridorLength: [2, 6],
+      dugPercentage: 0.4, // Increase from default 0.2 to ensure more floor tiles
     });
 
     // Initialize tiles array with walls (0)
@@ -76,6 +99,9 @@ export class DungeonGenerator {
     const rotRooms = digger.getRooms();
     const rooms = this.convertRotRooms(rotRooms, roomCount);
 
+    // Update room centers to be actual floor tiles (not just geometric centers)
+    this.updateRoomFloorCenters(rooms, tiles);
+
     // Build connection graph
     this.buildConnectionGraph(digger, rooms);
 
@@ -91,6 +117,98 @@ export class DungeonGenerator {
       entranceRoom,
       exitRoom,
     };
+  }
+
+  /**
+   * Validates that a generated dungeon is playable
+   */
+  private validateDungeon(dungeon: DungeonData): boolean {
+    // Count floor tiles
+    let floorCount = 0;
+    for (let y = 0; y < dungeon.height; y++) {
+      for (let x = 0; x < dungeon.width; x++) {
+        if (dungeon.tiles[y][x] === 1) {
+          floorCount++;
+        }
+      }
+    }
+
+    // Must have at least 12.5% floor coverage for playability
+    const minFloorTiles = Math.floor(dungeon.width * dungeon.height * 0.125);
+    if (floorCount < minFloorTiles) {
+      console.warn(`Validation failed: only ${floorCount} floor tiles (minimum ${minFloorTiles} required for ${dungeon.width}x${dungeon.height} dungeon)`);
+      return false;
+    }
+
+    // Entrance room must have at least one floor tile at or near center
+    const entrance = dungeon.entranceRoom;
+    let entranceHasFloor = false;
+
+    // Check entrance room area for floor tiles
+    for (let y = entrance.y; y < entrance.y + entrance.height && !entranceHasFloor; y++) {
+      for (let x = entrance.x; x < entrance.x + entrance.width && !entranceHasFloor; x++) {
+        if (dungeon.tiles[y]?.[x] === 1) {
+          entranceHasFloor = true;
+        }
+      }
+    }
+
+    if (!entranceHasFloor) {
+      console.warn('Validation failed: entrance room has no floor tiles');
+      return false;
+    }
+
+    // Must have at least 2 rooms
+    if (dungeon.rooms.length < 2) {
+      console.warn(`Validation failed: only ${dungeon.rooms.length} rooms`);
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Updates room centers to be actual floor tiles instead of geometric centers.
+   * This ensures spawning at room.centerX/centerY is always valid.
+   */
+  private updateRoomFloorCenters(rooms: Room[], tiles: number[][]): void {
+    rooms.forEach(room => {
+      const floorCenter = this.findFloorCenter(room, tiles);
+      if (floorCenter) {
+        room.centerX = floorCenter.x;
+        room.centerY = floorCenter.y;
+      }
+    });
+  }
+
+  /**
+   * Finds the closest floor tile to the geometric center of a room.
+   * Returns null if no floor tiles exist in the room.
+   */
+  private findFloorCenter(room: Room, tiles: number[][]): { x: number; y: number } | null {
+    const geometricCenterX = room.x + Math.floor(room.width / 2);
+    const geometricCenterY = room.y + Math.floor(room.height / 2);
+
+    // First try geometric center
+    if (tiles[geometricCenterY]?.[geometricCenterX] === 1) {
+      return { x: geometricCenterX, y: geometricCenterY };
+    }
+
+    // Search entire room for any floor tile, prefer tiles closest to geometric center
+    let bestTile: { x: number; y: number; dist: number } | null = null;
+
+    for (let y = room.y; y < room.y + room.height; y++) {
+      for (let x = room.x; x < room.x + room.width; x++) {
+        if (tiles[y]?.[x] === 1) {
+          const dist = Math.abs(x - geometricCenterX) + Math.abs(y - geometricCenterY);
+          if (!bestTile || dist < bestTile.dist) {
+            bestTile = { x, y, dist };
+          }
+        }
+      }
+    }
+
+    return bestTile ? { x: bestTile.x, y: bestTile.y } : null;
   }
 
   /**

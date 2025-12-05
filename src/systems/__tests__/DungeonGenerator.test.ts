@@ -213,4 +213,53 @@ describe('DungeonGenerator', () => {
       expect(dungeon.exitRoom).toBeDefined();
     });
   });
+
+  describe('Floor Coverage and Spawn Safety', () => {
+    it('should have entrance room center on a floor tile', () => {
+      // Run multiple times to catch intermittent failures
+      for (let i = 0; i < 10; i++) {
+        const dungeon = generator.generate();
+        const entrance = dungeon.entranceRoom;
+        const tile = dungeon.tiles[entrance.centerY]?.[entrance.centerX];
+        expect(tile).toBe(1); // Must be floor
+      }
+    });
+
+    it('should have all room centers on floor tiles', () => {
+      const dungeon = generator.generate();
+
+      dungeon.rooms.forEach((room) => {
+        const tile = dungeon.tiles[room.centerY]?.[room.centerX];
+        expect(tile).toBe(1); // All room centers should be walkable
+      });
+    });
+
+    it('should generate dungeon with adequate floor coverage', () => {
+      const dungeon = generator.generate();
+      const floorCount = dungeon.tiles.flat().filter((t) => t === 1).length;
+      const totalTiles = dungeon.width * dungeon.height;
+      const floorPercentage = floorCount / totalTiles;
+
+      // At least 10% floors (with dugPercentage: 0.4, we expect ~40%)
+      expect(floorPercentage).toBeGreaterThan(0.1);
+    });
+
+    it('should have at least 12.5% floor tiles for playability', () => {
+      const dungeon = generator.generate();
+      const floorCount = dungeon.tiles.flat().filter((t) => t === 1).length;
+      const minFloorTiles = Math.floor(dungeon.width * dungeon.height * 0.125);
+
+      expect(floorCount).toBeGreaterThanOrEqual(minFloorTiles);
+    });
+
+    it('should never generate a dungeon with all walls', () => {
+      // Run multiple times to ensure consistency
+      for (let i = 0; i < 5; i++) {
+        const dungeon = generator.generate();
+        const floorCount = dungeon.tiles.flat().filter((t) => t === 1).length;
+
+        expect(floorCount).toBeGreaterThan(0);
+      }
+    });
+  });
 });
