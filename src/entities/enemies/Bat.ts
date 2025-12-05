@@ -16,6 +16,7 @@ export class BatLogic extends EnemyLogic {
   private isCharging: boolean = true;
   private readonly chargeDuration: number = 1.5; // Charge for 1.5 seconds
   private readonly retreatDuration: number = 1.0; // Retreat for 1 second
+  private justStartedRetreat: boolean = false; // Track retreat start for projectile
 
   constructor(config: EnemyConfig) {
     super(config);
@@ -24,14 +25,18 @@ export class BatLogic extends EnemyLogic {
   /**
    * Update bat AI state
    * Switches between charging and retreating
+   * Returns true if bat just started retreating (should fire projectile)
    */
-  updateAI(deltaTime: number): void {
+  updateAI(deltaTime: number): boolean {
+    this.justStartedRetreat = false;
+
     if (this.isCharging) {
       this.chargeTimer += deltaTime;
       if (this.chargeTimer >= this.chargeDuration) {
         // Switch to retreat
         this.isCharging = false;
         this.chargeTimer = 0;
+        this.justStartedRetreat = true; // Signal to fire projectile
       }
     } else {
       this.retreatTimer += deltaTime;
@@ -41,6 +46,15 @@ export class BatLogic extends EnemyLogic {
         this.retreatTimer = 0;
       }
     }
+
+    return this.justStartedRetreat;
+  }
+
+  /**
+   * Check if bat just started retreating (for projectile firing)
+   */
+  shouldFireProjectile(): boolean {
+    return this.justStartedRetreat;
   }
 
   /**
@@ -126,14 +140,15 @@ export class Bat extends Enemy {
 
   /**
    * Update method - use bat-specific AI
+   * Returns true if bat should fire a projectile this frame
    */
-  update(targetX: number, targetY: number, deltaTime: number = 0.016): void {
+  update(targetX: number, targetY: number, deltaTime: number = 0.016): boolean {
     if (this.logic.isDead()) {
-      return;
+      return false;
     }
 
-    // Update AI state
-    this.logic.updateAI(deltaTime);
+    // Update AI state - returns true if just started retreat
+    const shouldFire = this.logic.updateAI(deltaTime);
 
     // Calculate bat velocity (charge or retreat)
     const velocity = this.logic.calculateBatVelocity(
@@ -145,6 +160,8 @@ export class Bat extends Enemy {
 
     // Apply velocity to physics body
     this.setVelocity(velocity.x, velocity.y);
+
+    return shouldFire;
   }
 
   /**
@@ -152,5 +169,20 @@ export class Bat extends Enemy {
    */
   getBatLogic(): BatLogic {
     return this.logic;
+  }
+
+  /**
+   * Get direction toward a target (for projectile aiming)
+   */
+  getDirectionToTarget(targetX: number, targetY: number): { x: number; y: number } {
+    const dx = targetX - this.x;
+    const dy = targetY - this.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance === 0) {
+      return { x: 1, y: 0 };
+    }
+
+    return { x: dx / distance, y: dy / distance };
   }
 }

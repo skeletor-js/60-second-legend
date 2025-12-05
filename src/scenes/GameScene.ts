@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { DISPLAY, TIME_EXTENSIONS, CORRUPTION, SHADOW, GameEvents, SHARD_SOURCES } from '@config/Constants';
+import { DISPLAY, TIME_EXTENSIONS, CORRUPTION, SHADOW, GameEvents, SHARD_SOURCES, SPAWN } from '@config/Constants';
 import { TimeManager } from '@systems/TimeManager';
 import { DungeonGenerator, DungeonData, RoomType } from '@systems/DungeonGenerator';
 import { CombatSystem } from '@systems/CombatSystem';
@@ -11,6 +11,7 @@ import { Slime } from '@entities/enemies/Slime';
 import { Bat } from '@entities/enemies/Bat';
 import { Rat } from '@entities/enemies/Rat';
 import { ShadowPursuer } from '@entities/ShadowPursuer';
+import { Projectile } from '@entities/Projectile';
 import { HUD } from '@ui/HUD';
 import type { RunConfig } from '@scenes/HubScene';
 
@@ -54,6 +55,10 @@ export class GameScene extends Phaser.Scene {
   private isPaused: boolean = false;
   private currentRoomId: number = -1;
   private clearedRooms: Set<number> = new Set();
+
+  // Weapon state (0=Swift Daggers, 1=Memory Blade, 2=Shatter Hammer)
+  private currentWeapon: number = 1; // Default to Memory Blade
+  private projectiles!: Phaser.Physics.Arcade.Group;
 
   // TODO: Apply RunConfig upgrades to player/systems in future phase
   // private runConfig?: RunConfig;
@@ -156,6 +161,12 @@ export class GameScene extends Phaser.Scene {
     this.enemies = this.physics.add.group();
     this.spawnEnemies();
 
+    // 4b. Create projectile group
+    // Note: Don't set classType since we're manually creating Projectile instances
+    this.projectiles = this.physics.add.group({
+      runChildUpdate: false,
+    });
+
     // 5. Create HUD
     this.hud = new HUD(this, this.timeManager, undefined, undefined, this.shadowSystem);
 
@@ -189,7 +200,14 @@ export class GameScene extends Phaser.Scene {
       loop: true,
     });
 
-    // 10. Set up input handlers
+    // 10. Start enemy respawn timer
+    this.time.addEvent({
+      delay: SPAWN.RESPAWN_INTERVAL,
+      callback: () => this.respawnEnemies(),
+      loop: true,
+    });
+
+    // 11. Set up input handlers
     this.setupInputHandlers();
 
     // 11. DEBUG: Log player body info after creation
@@ -212,7 +230,12 @@ export class GameScene extends Phaser.Scene {
       if (enemy instanceof Bat) {
         // Bat needs deltaTime for charge/retreat timing
         if (enemy.active && !enemy.isDead()) {
-          enemy.update(this.player.x, this.player.y, delta / 1000);
+          const shouldFire = enemy.update(this.player.x, this.player.y, delta / 1000);
+
+          // Fire projectile when bat starts retreating
+          if (shouldFire) {
+            this.fireBatProjectile(enemy);
+          }
         }
       } else if (enemy instanceof Enemy) {
         // Other enemies use standard update
@@ -224,6 +247,14 @@ export class GameScene extends Phaser.Scene {
 
     // Update combat cooldowns
     this.combatSystem.update(delta / 1000);
+
+    // Update projectiles and clean up expired ones
+    this.projectiles.getChildren().forEach((proj: Phaser.GameObjects.GameObject) => {
+      const projectile = proj as Projectile;
+      if (projectile.active && projectile.updateProjectile(delta)) {
+        projectile.destroy();
+      }
+    });
 
     // Update Shadow Pursuer if spawned
     if (this.shadowPursuer && this.shadowPursuer.active) {
@@ -456,7 +487,7 @@ export class GameScene extends Phaser.Scene {
     this.dungeonData.rooms
       .filter((room) => room.type === RoomType.COMBAT)
       .forEach((room) => {
-        const count = Phaser.Math.Between(2, 4);
+        const count = Phaser.Math.Between(SPAWN.MIN_PER_ROOM, SPAWN.MAX_PER_ROOM);
         for (let i = 0; i < count; i++) {
           const x = Phaser.Math.Between(room.x + 1, room.x + room.width - 2);
           const y = Phaser.Math.Between(room.y + 1, room.y + room.height - 2);
@@ -513,6 +544,60 @@ export class GameScene extends Phaser.Scene {
           }
         }
       });
+  }
+
+  /**
+   * Respawn enemies periodically in rooms near the player.
+   * Spawns 1-3 enemies in a random uncleared combat room.
+   * Respects MAX_ACTIVE_ENEMIES cap.
+   */
+  private respawnEnemies(): void {
+    // Count active enemies
+    const activeEnemies = this.enemies.getChildren().filter(
+      (e) => (e as Enemy).active && !(e as Enemy).isDead()
+    ).length;
+
+    // Don't spawn if at or above cap
+    if (activeEnemies >= SPAWN.MAX_ACTIVE_ENEMIES) {
+      return;
+    }
+
+    // Find uncleared combat rooms
+    const unclearedRooms = this.dungeonData.rooms.filter(
+      (room) => room.type === RoomType.COMBAT && !this.clearedRooms.has(room.id)
+    );
+
+    if (unclearedRooms.length === 0) {
+      return;
+    }
+
+    // Pick a random uncleared room
+    const room = Phaser.Utils.Array.GetRandom(unclearedRooms);
+
+    // Spawn 1-3 enemies (respecting cap)
+    const spawnCount = Math.min(
+      Phaser.Math.Between(1, 3),
+      SPAWN.MAX_ACTIVE_ENEMIES - activeEnemies
+    );
+
+    for (let i = 0; i < spawnCount; i++) {
+      const x = Phaser.Math.Between(room.x + 1, room.x + room.width - 2);
+      const y = Phaser.Math.Between(room.y + 1, room.y + room.height - 2);
+
+      // 60% Slime, 25% Bat, 15% Rat
+      const rand = Math.random() * 100;
+
+      if (rand < 60) {
+        const slime = new Slime(this, x * DISPLAY.TILE_SIZE, y * DISPLAY.TILE_SIZE);
+        this.enemies.add(slime as unknown as Phaser.GameObjects.GameObject);
+      } else if (rand < 85) {
+        const bat = new Bat(this, x * DISPLAY.TILE_SIZE, y * DISPLAY.TILE_SIZE);
+        this.enemies.add(bat as unknown as Phaser.GameObjects.GameObject);
+      } else {
+        const rat = new Rat(this, x * DISPLAY.TILE_SIZE, y * DISPLAY.TILE_SIZE);
+        this.enemies.add(rat as unknown as Phaser.GameObjects.GameObject);
+      }
+    }
   }
 
   /**
@@ -578,6 +663,61 @@ export class GameScene extends Phaser.Scene {
   private setupCollisions(): void {
     // Use combat system to set up collisions
     this.combatSystem.setupCollisions(this.player, this.enemies, this.wallLayer);
+
+    // Player projectiles hit enemies
+    this.physics.add.overlap(
+      this.projectiles,
+      this.enemies,
+      (projectileObj, enemyObj) => {
+        const projectile = projectileObj as Projectile;
+        const enemy = enemyObj as Enemy;
+
+        if (projectile.isEnemyProjectile() || !enemy.active || enemy.isDead()) {
+          return;
+        }
+
+        // Apply damage
+        const damage = projectile.getDamage();
+        const killed = enemy.takeDamage(damage);
+
+        // Destroy projectile (unless piercing)
+        projectile.onHit();
+      }
+    );
+
+    // Projectiles collide with walls
+    this.physics.add.collider(this.projectiles, this.wallLayer, (obj1, obj2) => {
+      // Determine which object is the projectile (has isEnemyProjectile method)
+      const projectile =
+        typeof (obj1 as any).isEnemyProjectile === 'function'
+          ? (obj1 as Projectile)
+          : (obj2 as Projectile);
+      projectile.destroy();
+    });
+
+    // Enemy projectiles hit player
+    this.physics.add.overlap(
+      this.projectiles,
+      this.player,
+      (obj1, obj2) => {
+        // Determine which object is the projectile (has isEnemyProjectile method)
+        const projectile =
+          typeof (obj1 as any).isEnemyProjectile === 'function'
+            ? (obj1 as Projectile)
+            : (obj2 as Projectile);
+
+        if (!projectile.isEnemyProjectile() || projectile.hasHitTarget()) {
+          return;
+        }
+
+        // Apply damage to player
+        const damage = projectile.getDamage();
+        this.player.takeDamage(damage);
+
+        // Destroy projectile
+        projectile.onHit();
+      }
+    );
   }
 
   /**
@@ -673,6 +813,43 @@ export class GameScene extends Phaser.Scene {
       this.togglePause();
     });
 
+    // Weapon switching: 1 = Swift Daggers, 2 = Memory Blade, 3 = Shatter Hammer
+    this.input.keyboard?.on('keydown-ONE', () => {
+      this.currentWeapon = 0;
+      console.log('Switched to Swift Daggers');
+    });
+    this.input.keyboard?.on('keydown-TWO', () => {
+      this.currentWeapon = 1;
+      console.log('Switched to Memory Blade');
+    });
+    this.input.keyboard?.on('keydown-THREE', () => {
+      this.currentWeapon = 2;
+      console.log('Switched to Shatter Hammer');
+    });
+
+    // M to dash/dodge
+    this.input.keyboard?.on('keydown-M', () => {
+      if (!this.isPaused && this.player.canDash()) {
+        // Get current movement direction from input
+        let dirX = 0;
+        let dirY = 0;
+
+        if (this.cursors.left.isDown || this.wasdKeys.A.isDown) dirX -= 1;
+        if (this.cursors.right.isDown || this.wasdKeys.D.isDown) dirX += 1;
+        if (this.cursors.up.isDown || this.wasdKeys.W.isDown) dirY -= 1;
+        if (this.cursors.down.isDown || this.wasdKeys.S.isDown) dirY += 1;
+
+        // If no direction held, use facing direction
+        if (dirX === 0 && dirY === 0) {
+          const facing = this.player.getFacingDirection();
+          dirX = facing.x;
+          dirY = facing.y;
+        }
+
+        this.player.dash(dirX, dirY);
+      }
+    });
+
     // L to attack
     this.input.keyboard?.on('keydown-L', () => {
       if (!this.isPaused && this.combatSystem.canAttack()) {
@@ -710,34 +887,110 @@ export class GameScene extends Phaser.Scene {
           frameStart
         );
         attackSprite.setDepth(10);
+        attackSprite.setScale(1.5); // Make weapon more visible
 
-        // Simple 2-frame swing animation
-        this.tweens.addCounter({
-          from: 0,
-          to: 1,
-          duration: 75,
-          onUpdate: (tween) => {
-            const value = tween.getValue() ?? 0;
-            const frame = frameStart + Math.floor(value);
-            attackSprite.setFrame(frame);
+        // Calculate base rotation from attack direction
+        const baseRotation = Math.atan2(direction.y, direction.x);
+
+        // Swing animation - rotate through arc
+        this.tweens.add({
+          targets: attackSprite,
+          rotation: { from: baseRotation - 0.5, to: baseRotation + 0.5 },
+          scale: { from: 1.5, to: 1.2 },
+          alpha: { from: 1, to: 0.3 },
+          duration: 200,
+          ease: 'Power2',
+          onUpdate: () => {
+            // Update position to follow player during swing
+            attackSprite.setPosition(
+              this.player.x + direction.x * DISPLAY.TILE_SIZE,
+              this.player.y + direction.y * DISPLAY.TILE_SIZE
+            );
+          },
+          onComplete: () => {
+            attackSprite.destroy();
           }
         });
 
-        // Remove after animation completes
-        this.time.delayedCall(150, () => {
-          attackSprite.destroy();
-        });
-
-        // Process attack
+        // Process melee attack
         this.combatSystem.attackNearbyEnemies(this.player, this.enemies, direction);
+
+        // Swift Daggers (weapon 0) also fires a projectile
+        if (this.currentWeapon === 0) {
+          this.fireProjectile(direction, false);
+        }
       }
     });
+  }
+
+  /**
+   * Fire a projectile in the given direction
+   * @param direction Normalized direction vector
+   * @param isEnemy Whether this is an enemy projectile
+   */
+  private fireProjectile(direction: { x: number; y: number }, isEnemy: boolean): void {
+    const projectile = new Projectile(
+      this,
+      this.player.x,
+      this.player.y,
+      'projectiles',
+      0, // First frame of projectiles spritesheet
+      direction,
+      {
+        speed: 200,
+        damage: 1,
+        lifetime: 2000,
+        piercing: false,
+        isEnemy: isEnemy,
+      }
+    );
+
+    this.projectiles.add(projectile as unknown as Phaser.GameObjects.GameObject);
+
+    // Activate velocity AFTER adding to group (Phaser groups can reset body properties)
+    projectile.activate();
+  }
+
+  /**
+   * Fire a projectile from a bat toward the player
+   */
+  private fireBatProjectile(bat: Bat): void {
+    const direction = bat.getDirectionToTarget(this.player.x, this.player.y);
+
+    const projectile = new Projectile(
+      this,
+      bat.x,
+      bat.y,
+      'projectiles',
+      1, // Different frame for enemy projectiles
+      direction,
+      {
+        speed: 150, // Faster than bat movement speed (60) but slower than player projectiles (200)
+        damage: 1,
+        lifetime: 3000,
+        piercing: false,
+        isEnemy: true,
+      }
+    );
+
+    // Tint enemy projectile red
+    projectile.setTint(0xff0000);
+
+    this.projectiles.add(projectile as unknown as Phaser.GameObjects.GameObject);
+
+    // Activate velocity AFTER adding to group (Phaser groups can reset body properties)
+    projectile.activate();
   }
 
   /**
    * Update player movement based on input
    */
   private updatePlayerMovement(): void {
+    // Don't process regular movement input while dashing
+    if (this.player.isDashing()) {
+      return;
+    }
+
     let inputX = 0;
     let inputY = 0;
 

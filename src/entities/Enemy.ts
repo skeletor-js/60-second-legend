@@ -194,15 +194,20 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
    * Handle enemy death
    */
   protected onDeath(timeReward: number): void {
+    // Guard against duplicate death events
+    if (!this.active) {
+      return;
+    }
+
+    // Disable immediately to prevent duplicate calls
+    this.setActive(false);
+    this.setVisible(false);
+
     // Emit death event with time reward
     this.scene.events.emit(GameEvents.ENEMY_KILLED, {
       enemy: this,
       timeReward,
     });
-
-    // Disable and hide
-    this.setActive(false);
-    this.setVisible(false);
 
     // Destroy after a short delay
     this.scene.time.delayedCall(100, () => {

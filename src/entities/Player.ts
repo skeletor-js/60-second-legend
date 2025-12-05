@@ -4,7 +4,7 @@
  */
 
 import Phaser from 'phaser';
-import { PLAYER, DISPLAY, GameEvents } from '../config/Constants';
+import { PLAYER, DISPLAY, DASH, GameEvents } from '../config/Constants';
 
 /**
  * Player configuration interface
@@ -33,6 +33,11 @@ export class PlayerLogic {
   // Relic-related modifiers
   private speedModifier: number = 0; // Additive speed bonus (0.2 = +20%)
   private damageModifier: number = 0; // Additive damage bonus
+
+  // Dash state
+  private dashCooldownRemaining: number = 0;
+  private isDashing: boolean = false;
+  private dashTimeRemaining: number = 0;
 
   constructor(config: PlayerConfig) {
     this.maxHealth = config.maxHealth;
@@ -215,6 +220,85 @@ export class PlayerLogic {
     this.health = Math.min(this.maxHealth, this.health + amount);
     return true;
   }
+
+  /**
+   * Check if player can dash
+   */
+  canDash(): boolean {
+    return this.dashCooldownRemaining <= 0 && !this.isDashing && !this.dead;
+  }
+
+  /**
+   * Start a dash in the given direction
+   * Returns the dash velocity if successful
+   */
+  startDash(directionX: number, directionY: number): { x: number; y: number } | null {
+    if (!this.canDash()) {
+      return null;
+    }
+
+    // Default to facing direction if no direction provided
+    if (directionX === 0 && directionY === 0) {
+      directionX = this.facingX || 1;
+      directionY = this.facingY;
+    }
+
+    // Normalize direction
+    const length = Math.sqrt(directionX * directionX + directionY * directionY);
+    if (length === 0) {
+      return null;
+    }
+
+    const normalizedX = directionX / length;
+    const normalizedY = directionY / length;
+
+    // Start dash
+    this.isDashing = true;
+    this.dashTimeRemaining = DASH.DURATION / 1000; // Convert ms to seconds
+    this.dashCooldownRemaining = DASH.COOLDOWN / 1000; // Convert ms to seconds
+
+    // Grant i-frames during dash
+    if (DASH.I_FRAMES) {
+      this.activateIFrames(DASH.DURATION / 1000);
+    }
+
+    // Calculate dash velocity (distance / duration)
+    const dashSpeed = DASH.DISTANCE / (DASH.DURATION / 1000);
+    return {
+      x: normalizedX * dashSpeed,
+      y: normalizedY * dashSpeed,
+    };
+  }
+
+  /**
+   * Update dash state
+   */
+  updateDash(deltaTime: number): boolean {
+    // Update dash cooldown
+    if (this.dashCooldownRemaining > 0) {
+      this.dashCooldownRemaining = Math.max(0, this.dashCooldownRemaining - deltaTime);
+    }
+
+    // Update active dash
+    if (this.isDashing) {
+      this.dashTimeRemaining -= deltaTime;
+      if (this.dashTimeRemaining <= 0) {
+        this.isDashing = false;
+        this.dashTimeRemaining = 0;
+        return false; // Dash ended
+      }
+      return true; // Still dashing
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if currently dashing
+   */
+  getIsDashing(): boolean {
+    return this.isDashing;
+  }
 }
 
 /**
@@ -223,6 +307,7 @@ export class PlayerLogic {
  */
 export class Player extends Phaser.Physics.Arcade.Sprite {
   private logic: PlayerLogic;
+  private dashVelocity: { x: number; y: number } | null = null;
 
   constructor(scene: Phaser.Scene, x: number, y: number, texture: string = 'player') {
     super(scene, x, y, texture);
@@ -318,14 +403,28 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     // Convert delta from ms to seconds
     const deltaSeconds = delta / 1000;
     this.logic.update(deltaSeconds);
+    const stillDashing = this.logic.updateDash(deltaSeconds);
+
+    // Maintain dash velocity during dash
+    if (stillDashing && this.dashVelocity) {
+      this.setVelocity(this.dashVelocity.x, this.dashVelocity.y);
+    } else if (!stillDashing && this.dashVelocity) {
+      // Dash ended, clear velocity
+      this.dashVelocity = null;
+    }
 
     // Update sprite based on i-frame state (visual feedback)
     if (this.logic.isInvulnerable()) {
       // Flicker effect during i-frames
       const flicker = Math.floor(time / 100) % 2 === 0;
       this.setAlpha(flicker ? 0.5 : 1);
+    } else if (this.logic.getIsDashing()) {
+      // Slight tint during dash
+      this.setAlpha(0.8);
+      this.setTint(0x00ffff);
     } else {
       this.setAlpha(1);
+      this.clearTint();
     }
   }
 
@@ -407,5 +506,44 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     return healed;
+  }
+
+  /**
+   * Check if player can dash
+   */
+  canDash(): boolean {
+    return this.logic.canDash();
+  }
+
+  /**
+   * Perform a dash in the given direction
+   * @param directionX X component of dash direction
+   * @param directionY Y component of dash direction
+   * @returns true if dash started, false if on cooldown
+   */
+  dash(directionX: number, directionY: number): boolean {
+    const dashVelocity = this.logic.startDash(directionX, directionY);
+
+    if (dashVelocity) {
+      // Store dash velocity to maintain it during dash
+      this.dashVelocity = dashVelocity;
+
+      // Apply dash velocity directly
+      this.setVelocity(dashVelocity.x, dashVelocity.y);
+
+      // Visual feedback - flash effect
+      this.scene.cameras.main.flash(50, 0, 255, 255, false);
+
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Check if currently dashing
+   */
+  isDashing(): boolean {
+    return this.logic.getIsDashing();
   }
 }

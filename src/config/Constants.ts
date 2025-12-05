@@ -76,6 +76,21 @@ export const PLAYER = {
 } as const;
 
 // =============================================================================
+// DASH SETTINGS
+// =============================================================================
+
+export const DASH = {
+  /** Dash distance in pixels */
+  DISTANCE: 48,
+  /** Dash duration in milliseconds */
+  DURATION: 150,
+  /** Cooldown between dashes in milliseconds */
+  COOLDOWN: 800,
+  /** Whether dash grants invincibility frames */
+  I_FRAMES: true,
+} as const;
+
+// =============================================================================
 // COMBAT SETTINGS
 // =============================================================================
 
@@ -88,8 +103,8 @@ export const COMBAT = {
   PERFECT_DODGE_DAMAGE_MULT: 2,
   /** Time reward for perfect dodge */
   PERFECT_DODGE_TIME: 1,
-  /** Execute health threshold (percentage) */
-  EXECUTE_THRESHOLD: 0.2,
+  /** Execute health threshold (percentage) - disabled (set to 0) */
+  EXECUTE_THRESHOLD: 0,
   /** Bonus time for execute kill */
   EXECUTE_TIME_BONUS: 2,
   /** Memory Blade base damage */
@@ -281,6 +296,23 @@ export const ENEMIES = {
     damage: 1,
     timeReward: 1,
   },
+} as const;
+
+// =============================================================================
+// SPAWN SETTINGS
+// =============================================================================
+
+export const SPAWN = {
+  /** Minimum enemies per combat room */
+  MIN_PER_ROOM: 5,
+  /** Maximum enemies per combat room */
+  MAX_PER_ROOM: 8,
+  /** Respawn interval in milliseconds */
+  RESPAWN_INTERVAL: 6000,
+  /** Maximum active enemies at once */
+  MAX_ACTIVE_ENEMIES: 30,
+  /** Chance to spawn enemies in corridors (0-1) */
+  CORRIDOR_SPAWN_CHANCE: 0.3,
 } as const;
 
 // =============================================================================

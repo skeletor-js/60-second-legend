@@ -325,20 +325,24 @@ describe('CombatMechanicsLogic', () => {
   // =============================================================================
 
   describe('Execute Mechanic', () => {
-    it('should detect executable enemy at 20% health', () => {
-      expect(mechanics.canExecute(2, 10)).toBe(true);
-      expect(mechanics.canExecute(1, 10)).toBe(true);
+    // NOTE: Execute mechanic is currently DISABLED (EXECUTE_THRESHOLD = 0)
+    // These tests verify that execute always returns false when disabled
+
+    it('should not execute when threshold is 0 (disabled)', () => {
+      // With threshold at 0, no enemy should be executable
+      expect(mechanics.canExecute(2, 10)).toBe(false);
+      expect(mechanics.canExecute(1, 10)).toBe(false);
     });
 
-    it('should not execute enemy above 20% health', () => {
+    it('should not execute enemy above 0% health (disabled)', () => {
       expect(mechanics.canExecute(3, 10)).toBe(false);
       expect(mechanics.canExecute(5, 10)).toBe(false);
       expect(mechanics.canExecute(10, 10)).toBe(false);
     });
 
-    it('should not execute at exactly 20% threshold', () => {
-      // At exactly 20%, should still be executable
-      expect(mechanics.canExecute(2, 10)).toBe(true);
+    it('should not execute at any threshold when disabled', () => {
+      // Execute is disabled, so never executable
+      expect(mechanics.canExecute(2, 10)).toBe(false);
     });
 
     it('should not execute dead enemy', () => {
@@ -351,16 +355,17 @@ describe('CombatMechanicsLogic', () => {
       expect(result.bonusTime).toBe(2);
     });
 
-    it('should work with various health pools', () => {
+    it('should not execute with any health pool when disabled', () => {
+      // Execute is disabled (threshold = 0), so all checks return false
       // 100 HP enemy
-      expect(mechanics.canExecute(20, 100)).toBe(true);
+      expect(mechanics.canExecute(20, 100)).toBe(false);
       expect(mechanics.canExecute(21, 100)).toBe(false);
 
       // 5 HP enemy
-      expect(mechanics.canExecute(1, 5)).toBe(true);
+      expect(mechanics.canExecute(1, 5)).toBe(false);
       expect(mechanics.canExecute(2, 5)).toBe(false);
 
-      // 1 HP enemy (can never execute since 0.2 * 1 = 0.2, rounds to 0)
+      // 1 HP enemy
       expect(mechanics.canExecute(1, 1)).toBe(false);
     });
   });

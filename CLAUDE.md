@@ -16,23 +16,27 @@ npm run test:coverage # Coverage report
 
 **60 Second Legend** is a time-loop roguelike where players navigate procedurally generated dungeons under constant time pressure. The core mechanic: every kill extends the clock (+3s), every hesitation drains it.
 
-### Current Status: Phase 1 Complete
+### Current Status: Phase 2 Complete
 
-- 170 passing tests across 8 test files
-- Playable dungeon with timer mechanic
-- Player movement (8-directional, physics-based)
-- Enemy AI (Slime with chase behavior)
-- Time extension on kills and room clears
-- HUD with timer, health, and +time popups
+- 450+ passing tests
+- Three weapons: Swift Daggers (ranged), Memory Blade, Shatter Hammer (AOE)
+- Three enemy types: Slime, Bat (projectile), Rat (pack behavior)
+- Projectile system for player and enemies
+- Kill streak bonuses (+2s to +20s)
+- Manual dash/dodge with i-frames
+- Continuous enemy respawning
 
 ### Game Controls
 
 | Key | Action |
 |-----|--------|
 | Arrow Keys / WASD | Move (8-directional) |
-| L | Attack (Memory Blade) |
-| P | Pause/Resume |
-| ESC | Pause/Resume |
+| L | Attack |
+| M | Dash/Dodge |
+| 1 | Swift Daggers (fires projectile) |
+| 2 | Memory Blade (default) |
+| 3 | Shatter Hammer (AOE) |
+| P / ESC | Pause/Resume |
 
 ## Tech Stack
 
@@ -60,12 +64,21 @@ npm run test:coverage # Coverage report
 │   │   ├── TimeManager.ts         # Core time mechanic (event emitter)
 │   │   ├── DungeonGenerator.ts    # rot.js integration (60x40 tiles)
 │   │   ├── CombatSystem.ts        # Weapons and damage
+│   │   ├── WeaponSystem.ts        # Weapon management and stats
+│   │   ├── CombatMechanics.ts     # Kill streaks, combos, dodges
 │   │   └── index.ts               # Barrel export
 │   ├── entities/
 │   │   ├── Player.ts              # PlayerLogic + Phaser sprite
 │   │   ├── Enemy.ts               # EnemyLogic + Phaser sprite base
-│   │   └── enemies/
-│   │       └── Slime.ts           # Slime enemy variant
+│   │   ├── Projectile.ts          # Player and enemy projectiles
+│   │   ├── enemies/
+│   │   │   ├── Slime.ts           # Slime enemy (chase)
+│   │   │   ├── Bat.ts             # Bat enemy (charge/retreat, projectile)
+│   │   │   └── Rat.ts             # Rat enemy (pack behavior)
+│   │   └── weapons/
+│   │       ├── SwiftDaggers.ts    # Fast, ranged weapon
+│   │       ├── MemoryBlade.ts     # Balanced melee weapon
+│   │       └── ShatterHammer.ts   # Slow AOE weapon
 │   ├── ui/
 │   │   └── HUD.ts                 # Timer, health, popups
 │   └── test/
@@ -272,7 +285,7 @@ Room types: `ENTRANCE`, `COMBAT`, `TREASURE`, `SECRET`, `BOSS`, `EXIT`
 ## Development Phases
 
 - [x] **Phase 1: Foundation** - Playable dungeon with timer (COMPLETE)
-- [ ] **Phase 2: Combat** - Weapons, combos, enemy variety
+- [x] **Phase 2: Combat** - Weapons, combos, enemy variety (COMPLETE)
 - [ ] **Phase 3: Floor Themes** - 5 biomes with hazards
 - [ ] **Phase 4: Relics** - Build variety through relic system
 - [ ] **Phase 5: The Shadow** - Corruption and pursuer mechanics

@@ -27,27 +27,29 @@
 
 ## Current Status
 
-**Phase 1: Foundation - COMPLETE** ✅
+**Phase 2: Combat System - COMPLETE** ✅
 
-All Phase 1 deliverables have been implemented with 170 passing tests:
+Phase 2 adds deep combat mechanics with weapon variety, enemy types, and skill-rewarding systems:
 
-- ✅ Project scaffolding with Vite + Phaser + TypeScript
-- ✅ Asset loading pipeline (sprites, UI elements)
-- ✅ TimeManager with visual HUD (countdown, color changes, +time popups)
-- ✅ rot.js dungeon generation (60x40 tiles, 10-12 rooms per floor)
-- ✅ Player movement (8-directional, physics-based)
-- ✅ Camera following player with bounds
-- ✅ Room transition detection and clearing
-- ✅ Slime enemies with chase AI
-- ✅ Time extension on enemy kill (+3s) and room clear (+8s)
+- ✅ Three distinct weapons (Swift Daggers, Memory Blade, Shatter Hammer)
+- ✅ Three enemy types (Slime, Bat, Rat) with unique behaviors
+- ✅ Projectile system (player and enemy projectiles)
+- ✅ Kill streak bonuses (+2s to +20s for consecutive kills)
+- ✅ Combo system with multipliers
+- ✅ Manual dash/dodge with i-frames
+- ✅ Continuous enemy respawning
 
 ### Controls
 
 | Key | Action |
 |-----|--------|
-| Arrow Keys / WASD | Move |
+| Arrow Keys / WASD | Move (8-directional) |
 | L | Attack |
-| P | Pause |
+| M | Dash/Dodge |
+| 1 | Swift Daggers (ranged) |
+| 2 | Memory Blade (default) |
+| 3 | Shatter Hammer (AOE) |
+| P / ESC | Pause |
 
 ## Getting Started
 
@@ -115,7 +117,7 @@ npm run dev
 ## Development Phases
 
 - [x] **Phase 1: Foundation** - Playable dungeon with timer mechanic ✅
-- [ ] **Phase 2: Combat** - Weapons, combos, enemies
+- [x] **Phase 2: Combat** - Weapons, combos, enemy variety ✅
 - [ ] **Phase 3: Floor Themes** - 5 distinct biomes with hazards
 - [ ] **Phase 4: Relics** - Build variety through relic combinations
 - [ ] **Phase 5: The Shadow** - Corruption system and pursuer

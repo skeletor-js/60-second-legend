@@ -178,9 +178,109 @@ this.combatSystem.attackNearbyEnemies(...)
 
 ---
 
+## Bug Fixes & Improvements (Post-Testing)
+
+### Issues Found During Testing
+
+1. **Invisible weapon animations** - Weapon sprites weren't visible during attacks
+2. **Not enough enemies** - Low spawn rates made areas feel empty
+3. **No projectile attacks** - All enemies used contact damage only
+4. **Double kill registration** - Time bonus messages appeared multiple times per kill
+5. **No manual dodge** - Perfect dodge was automatic, needed player control
+6. **Execute mechanic overpowered** - Instant kills disrupted game balance
+
+### Solutions Implemented
+
+#### 1. Weapon Animations Fixed
+- Improved swing animation with rotation, scaling, and fade
+- Weapon now visibly swings through 60-degree arc
+- Animation duration increased to 200ms for visibility
+
+#### 2. Enemy Spawn Rates Increased
+- Initial spawn per room: 5-8 enemies (was 2-4)
+- Added continuous respawning every 6 seconds
+- Max 30 active enemies to prevent performance issues
+- New constants in `src/config/Constants.ts`:
+  ```typescript
+  SPAWN: {
+    MIN_PER_ROOM: 5,
+    MAX_PER_ROOM: 8,
+    RESPAWN_INTERVAL: 6000,
+    MAX_ACTIVE_ENEMIES: 30,
+  }
+  ```
+
+#### 3. Projectile System Added
+- **Swift Daggers** now fire a thrown dagger projectile on attack
+- **Bats** fire projectiles at the player when starting retreat phase
+- New file: `src/entities/Projectile.ts`
+- Enemy projectiles tinted red for visibility
+
+#### 4. Double Kill Registration Fixed
+- Added guard in `Enemy.onDeath()` to prevent duplicate events
+- Enemy marked inactive before emitting ENEMY_KILLED event
+
+#### 5. Manual Dodge/Dash Added
+- Press **M** to dash in current movement direction
+- Dash distance: 48 pixels (3 tiles)
+- Cooldown: 800ms between dashes
+- Grants invincibility frames during dash
+- New constants in `src/config/Constants.ts`:
+  ```typescript
+  DASH: {
+    DISTANCE: 48,
+    DURATION: 150,
+    COOLDOWN: 800,
+    I_FRAMES: true,
+  }
+  ```
+
+#### 6. Execute Mechanic Disabled
+- Set `EXECUTE_THRESHOLD` to 0 in Constants.ts
+- Can be re-enabled later by setting back to 0.2 (20%)
+
+#### 7. Projectile Collision TypeError Fixed
+- Phaser overlap callbacks receive two parameters, not one
+- Fixed callbacks in GameScene to properly identify projectile vs other object
+- Player projectiles now correctly damage enemies
+- Enemy projectiles now correctly damage player
+
+#### 8. Projectile Movement Fixed
+- Projectiles were spawning but not moving
+- Root cause: Phaser groups can reset body velocity when adding sprites
+- Solution: Added `activate()` method to Projectile class
+- Velocity is now set AFTER adding to physics group
+
+### New Controls Added
+
+| Key | Action |
+|-----|--------|
+| **M** | Dash/dodge in movement direction |
+| **1** | Switch to Swift Daggers (fires projectile) |
+| **2** | Switch to Memory Blade (default) |
+| **3** | Switch to Shatter Hammer |
+
+### Files Modified
+
+- `src/entities/Enemy.ts` - Added guard against duplicate death events
+- `src/entities/enemies/Bat.ts` - Added projectile firing on retreat
+- `src/entities/Player.ts` - Added dash/dodge mechanics
+- `src/entities/Projectile.ts` - New projectile class
+- `src/scenes/GameScene.ts` - Weapon switching, projectiles, dash input, respawning
+- `src/config/Constants.ts` - Added DASH, SPAWN settings, disabled execute
+
+### Updated Known Limitations
+
+1. Weapon switching is instant (no animation)
+2. ~~Weapon sprites use placeholders~~ - Improved swing animation
+3. Combos don't yet affect damage multiplier in gameplay
+4. ~~Perfect dodge requires more GameScene integration~~ - Manual dash added
+
+---
+
 ## Next Steps (Future Iteration)
 
-1. Add weapon swing animations
+1. ~~Add weapon swing animations~~ - Done
 2. Implement weapon-specific visual effects
 3. Add remaining weapons (Echo Staff, Temporal Gauntlets)
 4. Polish perfect dodge timing and feedback
