@@ -5,6 +5,9 @@
 
 import Phaser from 'phaser';
 import { GameEvents } from '../config/Constants';
+import { TILESET, PaletteFrameMapping } from '../config/TilesetMapping';
+
+export type EnemyType = 'slime' | 'bat' | 'rat';
 
 /**
  * Enemy configuration interface
@@ -136,15 +139,18 @@ export class EnemyLogic {
  */
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
   protected logic: EnemyLogic;
+  protected enemyType: EnemyType = 'slime'; // Default, overridden by subclasses
+  protected currentFrame: number = 0;
 
   constructor(
     scene: Phaser.Scene,
     x: number,
     y: number,
     config: EnemyConfig,
-    texture: string = 'enemy'
+    texture: string = TILESET.KEY,
+    frame?: number
   ) {
-    super(scene, x, y, texture);
+    super(scene, x, y, texture, frame);
 
     // Initialize logic
     this.logic = new EnemyLogic(config);
@@ -268,5 +274,31 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
    */
   isDead(): boolean {
     return this.logic.isDead();
+  }
+
+  /**
+   * Get the enemy type
+   */
+  getEnemyType(): EnemyType {
+    return this.enemyType;
+  }
+
+  /**
+   * Update enemy sprite based on current floor palette
+   * @param frameMapping The frame mapping for the current palette
+   */
+  updateSprite(frameMapping: PaletteFrameMapping): void {
+    const enemyFrames = frameMapping.characters[this.enemyType];
+    if (enemyFrames && enemyFrames.length > 0) {
+      this.currentFrame = enemyFrames[0];
+      this.setTexture(TILESET.KEY, this.currentFrame);
+    }
+  }
+
+  /**
+   * Get the current sprite frame
+   */
+  getCurrentFrame(): number {
+    return this.currentFrame;
   }
 }

@@ -1,10 +1,12 @@
 import Phaser from 'phaser';
 import { DISPLAY, TIME_EXTENSIONS, CORRUPTION, SHADOW, GameEvents, SHARD_SOURCES, SPAWN } from '@config/Constants';
+import { TILESET, PaletteFrameMapping } from '@config/TilesetMapping';
 import { TimeManager } from '@systems/TimeManager';
 import { DungeonGenerator, DungeonData, RoomType } from '@systems/DungeonGenerator';
 import { CombatSystem } from '@systems/CombatSystem';
 import { ProgressionSystem } from '@systems/ProgressionSystem';
 import { ShadowSystem } from '@systems/ShadowSystem';
+import { FloorThemeSystem, getNeighbors, resolveWallType, getWallFrame } from '@systems/index';
 import { Player } from '@entities/Player';
 import { Enemy } from '@entities/Enemy';
 import { Slime } from '@entities/enemies/Slime';
@@ -26,6 +28,7 @@ export class GameScene extends Phaser.Scene {
   private combatSystem!: CombatSystem;
   private progressionSystem!: ProgressionSystem;
   private shadowSystem!: ShadowSystem;
+  private floorThemeSystem!: FloorThemeSystem;
 
   // Entities
   private player!: Player;
@@ -111,6 +114,7 @@ export class GameScene extends Phaser.Scene {
     this.dungeonGenerator = new DungeonGenerator();
     this.combatSystem = new CombatSystem(this);
     this.shadowSystem = new ShadowSystem(this);
+    this.floorThemeSystem = new FloorThemeSystem(this, this.runStats.floorReached);
 
     // 2. Generate dungeon
     this.dungeonData = this.dungeonGenerator.generate();
@@ -143,11 +147,19 @@ export class GameScene extends Phaser.Scene {
       console.log(row);
     }
 
+    // Get frame mapping for player sprite
+    const frameMapping = this.floorThemeSystem.getFrameMapping();
+
     this.player = new Player(
       this,
       spawnPos.x * DISPLAY.TILE_SIZE + DISPLAY.TILE_SIZE / 2,
-      spawnPos.y * DISPLAY.TILE_SIZE + DISPLAY.TILE_SIZE / 2
+      spawnPos.y * DISPLAY.TILE_SIZE + DISPLAY.TILE_SIZE / 2,
+      TILESET.KEY,
+      frameMapping.characters.player[0]
     );
+
+    // Initialize player sprite with current floor palette
+    this.player.updateSprite(frameMapping);
 
     // DEBUG: Draw spawn position marker
     this.add.circle(
@@ -370,11 +382,15 @@ export class GameScene extends Phaser.Scene {
 
   /**
    * Create tilemap from dungeon data using sprite-based rendering
-   * Uses individual sprites for reliable tile rendering
+   * Uses the 1-bit roguelike tileset with palette-based coloring per floor
    */
   private createTilemap(): void {
     const { width, height, tiles } = this.dungeonData;
     const tileSize = DISPLAY.TILE_SIZE;
+
+    // Get frame mapping for current floor palette
+    const isBonusFloor = this.floorThemeSystem.isBonusFloor();
+    const frameMapping = this.floorThemeSystem.getFrameMapping();
 
     // Create a simple tilemap for collision purposes only
     this.tilemap = this.make.tilemap({
@@ -384,10 +400,10 @@ export class GameScene extends Phaser.Scene {
       height: height,
     });
 
-    // Add wall tileset for collision layer
-    const wallTileset = this.tilemap.addTilesetImage(
-      'tileset-walls',
-      'tileset-walls',
+    // Add tileset for collision layer (using 1-bit tileset)
+    const tileset = this.tilemap.addTilesetImage(
+      TILESET.KEY,
+      TILESET.KEY,
       tileSize,
       tileSize,
       0,
@@ -395,30 +411,35 @@ export class GameScene extends Phaser.Scene {
     );
 
     // Create collision layer for walls
-    this.wallLayer = this.tilemap.createBlankLayer('walls', wallTileset!, 0, 0)!;
+    this.wallLayer = this.tilemap.createBlankLayer('walls', tileset!, 0, 0)!;
     this.wallLayer.setDepth(1); // Walls render above floor
-
-    // Floor tile frames from grounds.png
-    // grounds.png is 13 columns wide (208px / 16px)
-    // Row 15 (frames 195+) contains simple solid beige floor tiles
-    const FLOOR_FRAMES = [195, 196, 197, 198];
 
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         const pixelX = x * tileSize;
         const pixelY = y * tileSize;
 
+        // Get frame mapping (random for bonus floor)
+        const currentFrames: PaletteFrameMapping = isBonusFloor
+          ? this.floorThemeSystem.getRandomFrameMapping()
+          : frameMapping;
+
         if (tiles[y][x] === 1) {
           // FLOOR tile - walkable area
-          const floorFrame = FLOOR_FRAMES[Phaser.Math.Between(0, FLOOR_FRAMES.length - 1)];
-          const floorSprite = this.add.sprite(pixelX, pixelY, 'tileset-grounds', floorFrame);
+          const floorFrames = currentFrames.tiles.floors;
+          const floorFrame = floorFrames[Phaser.Math.Between(0, floorFrames.length - 1)];
+          const floorSprite = this.add.sprite(pixelX, pixelY, TILESET.KEY, floorFrame);
           floorSprite.setOrigin(0, 0);
           floorSprite.setDepth(-2);
         } else {
-          // WALL tile - render as solid black rectangle
-          const wallRect = this.add.rectangle(pixelX, pixelY, tileSize, tileSize, 0x000000);
-          wallRect.setOrigin(0, 0);
-          wallRect.setDepth(-1);
+          // WALL tile - use edge detection to select appropriate wall sprite
+          const neighbors = getNeighbors(x, y, tiles, width, height);
+          const wallType = resolveWallType(neighbors);
+          const wallFrame = getWallFrame(wallType, currentFrames.tiles);
+
+          const wallSprite = this.add.sprite(pixelX, pixelY, TILESET.KEY, wallFrame);
+          wallSprite.setOrigin(0, 0);
+          wallSprite.setDepth(-1);
 
           // Add to collision layer for physics (use tile ID 1, not 0)
           this.wallLayer.putTileAt(1, x, y);
@@ -433,6 +454,7 @@ export class GameScene extends Phaser.Scene {
     console.log('=== COLLISION LAYER DEBUG ===');
     console.log('Wall layer dimensions:', this.wallLayer.width, 'x', this.wallLayer.height);
     console.log('Tilemap dimensions:', this.tilemap.width, 'x', this.tilemap.height);
+    console.log('Current floor palette:', this.floorThemeSystem.getTilesetPalette());
 
     // Count collision tiles
     let collisionTileCount = 0;
@@ -484,6 +506,9 @@ export class GameScene extends Phaser.Scene {
    * - 20% Rat pack (3-5 rats with pack behavior)
    */
   private spawnEnemies(): void {
+    // Get frame mapping for current floor palette
+    const frameMapping = this.floorThemeSystem.getFrameMapping();
+
     this.dungeonData.rooms
       .filter((room) => room.type === RoomType.COMBAT)
       .forEach((room) => {
@@ -500,16 +525,20 @@ export class GameScene extends Phaser.Scene {
             const slime = new Slime(
               this,
               x * DISPLAY.TILE_SIZE,
-              y * DISPLAY.TILE_SIZE
+              y * DISPLAY.TILE_SIZE,
+              frameMapping.characters.slime[0]
             );
+            slime.updateSprite(frameMapping);
             this.enemies.add(slime as unknown as Phaser.GameObjects.GameObject);
           } else if (rand < 80) {
             // 30% - Spawn Bat
             const bat = new Bat(
               this,
               x * DISPLAY.TILE_SIZE,
-              y * DISPLAY.TILE_SIZE
+              y * DISPLAY.TILE_SIZE,
+              frameMapping.characters.bat[0]
             );
+            bat.updateSprite(frameMapping);
             this.enemies.add(bat as unknown as Phaser.GameObjects.GameObject);
           } else {
             // 20% - Spawn Rat pack (3-5 rats)
@@ -533,8 +562,10 @@ export class GameScene extends Phaser.Scene {
               const rat = new Rat(
                 this,
                 ratX * DISPLAY.TILE_SIZE,
-                ratY * DISPLAY.TILE_SIZE
+                ratY * DISPLAY.TILE_SIZE,
+                frameMapping.characters.rat[0]
               );
+              rat.updateSprite(frameMapping);
               rats.push(rat);
               this.enemies.add(rat as unknown as Phaser.GameObjects.GameObject);
             }
@@ -574,6 +605,9 @@ export class GameScene extends Phaser.Scene {
     // Pick a random uncleared room
     const room = Phaser.Utils.Array.GetRandom(unclearedRooms);
 
+    // Get frame mapping for current floor palette
+    const frameMapping = this.floorThemeSystem.getFrameMapping();
+
     // Spawn 1-3 enemies (respecting cap)
     const spawnCount = Math.min(
       Phaser.Math.Between(1, 3),
@@ -588,13 +622,16 @@ export class GameScene extends Phaser.Scene {
       const rand = Math.random() * 100;
 
       if (rand < 60) {
-        const slime = new Slime(this, x * DISPLAY.TILE_SIZE, y * DISPLAY.TILE_SIZE);
+        const slime = new Slime(this, x * DISPLAY.TILE_SIZE, y * DISPLAY.TILE_SIZE, frameMapping.characters.slime[0]);
+        slime.updateSprite(frameMapping);
         this.enemies.add(slime as unknown as Phaser.GameObjects.GameObject);
       } else if (rand < 85) {
-        const bat = new Bat(this, x * DISPLAY.TILE_SIZE, y * DISPLAY.TILE_SIZE);
+        const bat = new Bat(this, x * DISPLAY.TILE_SIZE, y * DISPLAY.TILE_SIZE, frameMapping.characters.bat[0]);
+        bat.updateSprite(frameMapping);
         this.enemies.add(bat as unknown as Phaser.GameObjects.GameObject);
       } else {
-        const rat = new Rat(this, x * DISPLAY.TILE_SIZE, y * DISPLAY.TILE_SIZE);
+        const rat = new Rat(this, x * DISPLAY.TILE_SIZE, y * DISPLAY.TILE_SIZE, frameMapping.characters.rat[0]);
+        rat.updateSprite(frameMapping);
         this.enemies.add(rat as unknown as Phaser.GameObjects.GameObject);
       }
     }

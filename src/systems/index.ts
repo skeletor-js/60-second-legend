@@ -15,6 +15,14 @@ export type { KillStreakData, ComboData, PerfectDodgeData, ExecuteData } from '.
 export { RelicSystem, RelicLogic } from './RelicSystem';
 export type { EquippedRelic } from './RelicSystem';
 export { FloorThemeSystem, FloorThemeLogic } from './FloorThemeSystem';
+export {
+  WallType,
+  getNeighbors,
+  resolveWallType,
+  getWallFrame,
+  resolveWallFrame,
+} from './WallTileResolver';
+export type { TileNeighbors } from './WallTileResolver';
 export { HazardSystem, HazardLogic } from './HazardSystem';
 export type { HazardTile, HazardEffectData } from './HazardSystem';
 export { ShadowSystem, ShadowLogic } from './ShadowSystem';

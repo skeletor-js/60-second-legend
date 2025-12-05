@@ -5,6 +5,7 @@
 
 import { Enemy, EnemyConfig, EnemyLogic } from '../Enemy';
 import { ENEMIES } from '../../config/Constants';
+import { TILESET } from '../../config/TilesetMapping';
 
 /**
  * RatLogic - Pure logic class for Rat AI
@@ -112,9 +113,10 @@ export class Rat extends Enemy {
   protected logic: RatLogic;
   private packMembers: Rat[] = [];
 
-  constructor(scene: Phaser.Scene, x: number, y: number) {
+  constructor(scene: Phaser.Scene, x: number, y: number, frame?: number) {
     // Use Rat config from ENEMIES constant
-    super(scene, x, y, ENEMIES.RAT, 'enemy-rat');
+    super(scene, x, y, ENEMIES.RAT, TILESET.KEY, frame);
+    this.enemyType = 'rat';
 
     // Replace base logic with RatLogic
     this.logic = new RatLogic(ENEMIES.RAT);

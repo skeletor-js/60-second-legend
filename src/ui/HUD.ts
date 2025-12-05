@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { TIME, PLAYER, DISPLAY, CORRUPTION, GameEvents, RELIC } from '@config/Constants';
+import { TILESET, TilesetPalette, PALETTE_FRAMES } from '@config/TilesetMapping';
 import { TimeManager } from '@systems/TimeManager';
 import { CombatMechanics, KillStreakData, ComboData } from '@systems/CombatMechanics';
 import { RelicSystem, EquippedRelic } from '@systems/RelicSystem';
@@ -125,6 +126,8 @@ export class HUD extends Phaser.GameObjects.Container {
   private shadowSystem: ShadowSystem | null = null;
   private timerText!: Phaser.GameObjects.Text;
   private hearts: Phaser.GameObjects.Sprite[] = [];
+  private heartFullFrame: number = 0;
+  private heartEmptyFrame: number = 0;
   private popupTexts: Map<number, Phaser.GameObjects.Text> = new Map();
   private timeTickHandler: (data: unknown) => void;
   private timeExtendedHandler: (data: unknown) => void;
@@ -208,19 +211,25 @@ export class HUD extends Phaser.GameObjects.Container {
 
   /**
    * Creates the health display at the top left of the screen
+   * Uses the 1-bit tileset with white palette for consistent UI
    */
   private createHealthDisplay(): void {
     const startX = 8;
     const startY = 8;
     const heartSpacing = 18;
 
-    // Create heart sprites using ui-icons-16 sprite sheet
+    // Get UI frames from white palette (consistent UI regardless of floor)
+    const uiFrames = PALETTE_FRAMES[TilesetPalette.WHITE].ui;
+    this.heartFullFrame = uiFrames.heartFull;
+    this.heartEmptyFrame = uiFrames.heartEmpty;
+
+    // Create heart sprites using 1-bit tileset
     for (let i = 0; i < PLAYER.MAX_HEALTH; i++) {
       const heart = this.scene.add.sprite(
         startX + i * heartSpacing,
         startY,
-        'ui-icons-16',
-        0 // First frame - adjust if heart is at different index
+        TILESET.KEY,
+        this.heartFullFrame
       );
       heart.setOrigin(0, 0);
       heart.setScrollFactor(0);
@@ -433,16 +442,16 @@ export class HUD extends Phaser.GameObjects.Container {
   public updateHealthDisplay(currentHealth: number): void {
     const heartData = this.logic.getHeartCount(currentHealth, PLAYER.MAX_HEALTH);
 
-    // Update heart sprites
-    // In real implementation, you'd set different frames/textures
-    // For now, we just track the state
+    // Update heart sprites with appropriate frames
     for (let i = 0; i < this.hearts.length; i++) {
       if (i < heartData.filled) {
         // Show filled heart
+        this.hearts[i].setFrame(this.heartFullFrame);
         this.hearts[i].setAlpha(1.0);
       } else {
         // Show empty heart
-        this.hearts[i].setAlpha(0.3);
+        this.hearts[i].setFrame(this.heartEmptyFrame);
+        this.hearts[i].setAlpha(1.0);
       }
     }
   }

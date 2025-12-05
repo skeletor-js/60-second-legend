@@ -5,6 +5,7 @@
 
 import { Enemy, EnemyConfig, EnemyLogic } from '../Enemy';
 import { ENEMIES } from '../../config/Constants';
+import { TILESET } from '../../config/TilesetMapping';
 
 /**
  * BatLogic - Pure logic class for Bat AI
@@ -123,9 +124,10 @@ export class BatLogic extends EnemyLogic {
 export class Bat extends Enemy {
   protected logic: BatLogic;
 
-  constructor(scene: Phaser.Scene, x: number, y: number) {
+  constructor(scene: Phaser.Scene, x: number, y: number, frame?: number) {
     // Use Bat config from ENEMIES constant
-    super(scene, x, y, ENEMIES.BAT, 'enemy-bat');
+    super(scene, x, y, ENEMIES.BAT, TILESET.KEY, frame);
+    this.enemyType = 'bat';
 
     // Replace base logic with BatLogic
     this.logic = new BatLogic(ENEMIES.BAT);

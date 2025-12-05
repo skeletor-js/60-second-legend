@@ -41,6 +41,12 @@ beforeAll(() => {
     Phaser.GameObjects.Container.prototype.setScrollFactor = vi.fn().mockReturnThis();
     Phaser.GameObjects.Container.prototype.setDepth = vi.fn().mockReturnThis();
   }
+
+  // Mock Physics.Arcade.Sprite methods for Player/Enemy classes
+  if (Phaser.Physics?.Arcade?.Sprite?.prototype) {
+    Phaser.Physics.Arcade.Sprite.prototype.setTexture = vi.fn().mockReturnThis();
+    Phaser.Physics.Arcade.Sprite.prototype.setFrame = vi.fn().mockReturnThis();
+  }
 });
 
 // Mock Phaser scene
