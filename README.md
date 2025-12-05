@@ -25,6 +25,30 @@
 - **rot.js** - Roguelike toolkit (dungeon generation, FOV, pathfinding)
 - **Vite** - Build tool and dev server
 
+## Current Status
+
+**Phase 1: Foundation - COMPLETE** ✅
+
+All Phase 1 deliverables have been implemented with 170 passing tests:
+
+- ✅ Project scaffolding with Vite + Phaser + TypeScript
+- ✅ Asset loading pipeline (sprites, UI elements)
+- ✅ TimeManager with visual HUD (countdown, color changes, +time popups)
+- ✅ rot.js dungeon generation (60x40 tiles, 10-12 rooms per floor)
+- ✅ Player movement (8-directional, physics-based)
+- ✅ Camera following player with bounds
+- ✅ Room transition detection and clearing
+- ✅ Slime enemies with chase AI
+- ✅ Time extension on enemy kill (+3s) and room clear (+8s)
+
+### Controls
+
+| Key | Action |
+|-----|--------|
+| Arrow Keys / WASD | Move |
+| L | Attack |
+| P | Pause |
+
 ## Getting Started
 
 ### Prerequisites
@@ -53,36 +77,50 @@ npm run dev
 | `npm run dev` | Start development server |
 | `npm run build` | Build for production |
 | `npm run preview` | Preview production build |
+| `npm test` | Run test suite (170 tests) |
 
 ## Project Structure
 
 ```
 60-second-legend/
 ├── src/
-│   ├── main.ts              # Entry point
-│   ├── config/              # Game configuration
-│   ├── scenes/              # Phaser scenes
-│   ├── systems/             # Core game systems
-│   ├── entities/            # Player, enemies, pickups
-│   ├── components/          # ECS-style components
-│   ├── ui/                  # HUD and menus
-│   └── utils/               # Utility functions
+│   ├── main.ts                    # Entry point
+│   ├── config/
+│   │   ├── GameConfig.ts          # Phaser configuration
+│   │   ├── Constants.ts           # Game balance values
+│   │   └── AssetManifest.ts       # Asset definitions
+│   ├── scenes/
+│   │   ├── BootScene.ts           # Asset preloading
+│   │   ├── MenuScene.ts           # Main menu
+│   │   └── GameScene.ts           # Main gameplay
+│   ├── systems/
+│   │   ├── TimeManager.ts         # Core time mechanic
+│   │   ├── DungeonGenerator.ts    # rot.js integration
+│   │   └── CombatSystem.ts        # Weapons and damage
+│   ├── entities/
+│   │   ├── Player.ts              # Player character
+│   │   ├── Enemy.ts               # Base enemy class
+│   │   └── enemies/
+│   │       └── Slime.ts           # Slime enemy variant
+│   ├── ui/
+│   │   └── HUD.ts                 # Timer, health, popups
+│   └── test/
+│       └── mocks/                 # Phaser mocks for testing
 ├── assets/
-│   ├── SGQ_Dungeon/         # Sprite assets
-│   └── SGQ_ui/              # UI assets
-├── public/                  # Static files
-└── package.json
+│   └── SGQ_Dungeon/               # Sprite assets
+├── public/                        # Static files
+└── docs/                          # Documentation
 ```
 
 ## Development Phases
 
-1. **Foundation** - Playable dungeon with timer mechanic
-2. **Combat** - Weapons, combos, enemies
-3. **Floor Themes** - 5 distinct biomes with hazards
-4. **Relics** - Build variety through relic combinations
-5. **The Shadow** - Corruption system and pursuer
-6. **Meta Progression** - Between-run upgrades
-7. **Polish** - Juice, audio, accessibility
+- [x] **Phase 1: Foundation** - Playable dungeon with timer mechanic ✅
+- [ ] **Phase 2: Combat** - Weapons, combos, enemies
+- [ ] **Phase 3: Floor Themes** - 5 distinct biomes with hazards
+- [ ] **Phase 4: Relics** - Build variety through relic combinations
+- [ ] **Phase 5: The Shadow** - Corruption system and pursuer
+- [ ] **Phase 6: Meta Progression** - Between-run upgrades
+- [ ] **Phase 7: Polish** - Juice, audio, accessibility
 
 ## License
 

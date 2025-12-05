@@ -344,17 +344,17 @@ class Player extends Phaser.Physics.Arcade.Sprite {
 
 ### Phase 1 Deliverables
 
-- [ ] Project scaffolding with Vite + Phaser + TypeScript
-- [ ] Asset loading pipeline (sprites, audio)
-- [ ] TimeManager with visual HUD (countdown, color changes, +time popups)
-- [ ] rot.js dungeon generation (single floor, multiple rooms)
-- [ ] Player movement (8-directional, grid-aligned)
-- [ ] Basic camera following player
-- [ ] Room transition detection
-- [ ] Placeholder enemy (stationary, killable)
-- [ ] Time extension on kill
+- [x] Project scaffolding with Vite + Phaser + TypeScript
+- [x] Asset loading pipeline (sprites, audio)
+- [x] TimeManager with visual HUD (countdown, color changes, +time popups)
+- [x] rot.js dungeon generation (single floor, multiple rooms)
+- [x] Player movement (8-directional, grid-aligned)
+- [x] Basic camera following player
+- [x] Room transition detection
+- [x] Placeholder enemy (stationary, killable)
+- [x] Time extension on kill
 
-**Milestone:** Navigate procedural dungeon, kill enemies, watch timer tick.
+**Milestone:** Navigate procedural dungeon, kill enemies, watch timer tick. ✅ **COMPLETE** (170 passing tests)
 
 ---
 
