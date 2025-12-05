@@ -74,7 +74,7 @@ export class GameScene extends Phaser.Scene {
 
   // DEBUG
   private debugLogCounter: number = 0;
-  private debugEnabled: boolean = true;
+  private debugEnabled: boolean = false;
 
   constructor() {
     super({ key: 'GameScene' });
