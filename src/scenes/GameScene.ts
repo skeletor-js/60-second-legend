@@ -48,6 +48,7 @@ export class GameScene extends Phaser.Scene {
 
   // DEBUG
   private debugLogCounter: number = 0;
+  private debugEnabled: boolean = true;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -642,6 +643,31 @@ export class GameScene extends Phaser.Scene {
         .setScrollFactor(0)
         .setDepth(1000)
         .setName('pauseText');
+
+      // Debug toggle button
+      const debugButton = this.add
+        .text(
+          DISPLAY.WIDTH / 2,
+          DISPLAY.HEIGHT / 2 + 30,
+          `Debug: ${this.debugEnabled ? 'ON' : 'OFF'}`,
+          {
+            fontSize: '12px',
+            color: this.debugEnabled ? '#00ff00' : '#ff0000',
+            backgroundColor: '#333333',
+            padding: { x: 8, y: 4 },
+          }
+        )
+        .setOrigin(0.5)
+        .setScrollFactor(0)
+        .setDepth(1000)
+        .setName('debugButton')
+        .setInteractive({ useHandCursor: true });
+
+      debugButton.on('pointerdown', () => {
+        this.toggleDebug();
+        debugButton.setText(`Debug: ${this.debugEnabled ? 'ON' : 'OFF'}`);
+        debugButton.setColor(this.debugEnabled ? '#00ff00' : '#ff0000');
+      });
     } else {
       this.physics.resume();
       this.timeManager.resume();
@@ -649,6 +675,19 @@ export class GameScene extends Phaser.Scene {
       // Remove pause overlay
       this.children.getByName('pauseOverlay')?.destroy();
       this.children.getByName('pauseText')?.destroy();
+      this.children.getByName('debugButton')?.destroy();
+    }
+  }
+
+  /**
+   * Toggle debug visualization
+   */
+  private toggleDebug(): void {
+    this.debugEnabled = !this.debugEnabled;
+    this.physics.world.drawDebug = this.debugEnabled;
+
+    if (!this.debugEnabled) {
+      this.physics.world.debugGraphic?.clear();
     }
   }
 
