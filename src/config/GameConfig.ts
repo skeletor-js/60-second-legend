@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { DISPLAY } from './Constants';
 import { BootScene } from '@scenes/BootScene';
 import { MenuScene } from '@scenes/MenuScene';
+import { HubScene } from '@scenes/HubScene';
 import { GameScene } from '@scenes/GameScene';
 
 /**
@@ -26,6 +27,6 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
       debug: import.meta.env.DEV,
     },
   },
-  scene: [BootScene, MenuScene, GameScene],
+  scene: [BootScene, MenuScene, HubScene, GameScene],
   backgroundColor: '#1a1a2e',
 };

@@ -23,6 +23,7 @@ export interface DungeonConfig {
   width: number;
   height: number;
   roomCount?: { min: number; max: number };
+  floorNumber?: number;
 }
 
 export interface DungeonData {
@@ -32,6 +33,7 @@ export interface DungeonData {
   rooms: Room[];
   entranceRoom: Room;
   exitRoom: Room;
+  floorNumber: number;
 }
 
 /**
@@ -42,7 +44,7 @@ export class DungeonGenerator {
   /**
    * Generates a dungeon based on the provided configuration.
    * Will retry generation if validation fails.
-   * @param config - Optional configuration for dungeon dimensions and room count
+   * @param config - Optional configuration for dungeon dimensions, room count, and floor number
    * @returns DungeonData containing tiles and room information
    */
   public generate(config?: DungeonConfig): DungeonData {
@@ -70,6 +72,7 @@ export class DungeonGenerator {
     const width = config?.width ?? 60;
     const height = config?.height ?? 40;
     const roomCount = config?.roomCount ?? { min: 10, max: 12 };
+    const floorNumber = config?.floorNumber ?? 1;
 
     // Create rot.js digger
     const digger = new RotMap.Digger(width, height, {
@@ -116,6 +119,7 @@ export class DungeonGenerator {
       rooms,
       entranceRoom,
       exitRoom,
+      floorNumber,
     };
   }
 

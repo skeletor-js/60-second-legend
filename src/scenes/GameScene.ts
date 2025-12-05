@@ -1,12 +1,18 @@
 import Phaser from 'phaser';
-import { DISPLAY, TIME_EXTENSIONS, GameEvents } from '@config/Constants';
+import { DISPLAY, TIME_EXTENSIONS, CORRUPTION, SHADOW, GameEvents, SHARD_SOURCES } from '@config/Constants';
 import { TimeManager } from '@systems/TimeManager';
 import { DungeonGenerator, DungeonData, RoomType } from '@systems/DungeonGenerator';
 import { CombatSystem } from '@systems/CombatSystem';
+import { ProgressionSystem } from '@systems/ProgressionSystem';
+import { ShadowSystem } from '@systems/ShadowSystem';
 import { Player } from '@entities/Player';
 import { Enemy } from '@entities/Enemy';
 import { Slime } from '@entities/enemies/Slime';
+import { Bat } from '@entities/enemies/Bat';
+import { Rat } from '@entities/enemies/Rat';
+import { ShadowPursuer } from '@entities/ShadowPursuer';
 import { HUD } from '@ui/HUD';
+import type { RunConfig } from '@scenes/HubScene';
 
 /**
  * GameScene
@@ -17,10 +23,13 @@ export class GameScene extends Phaser.Scene {
   private timeManager!: TimeManager;
   private dungeonGenerator!: DungeonGenerator;
   private combatSystem!: CombatSystem;
+  private progressionSystem!: ProgressionSystem;
+  private shadowSystem!: ShadowSystem;
 
   // Entities
   private player!: Player;
   private enemies!: Phaser.Physics.Arcade.Group;
+  private shadowPursuer: ShadowPursuer | null = null;
 
   // UI
   private hud!: HUD;
@@ -46,12 +55,47 @@ export class GameScene extends Phaser.Scene {
   private currentRoomId: number = -1;
   private clearedRooms: Set<number> = new Set();
 
+  // TODO: Apply RunConfig upgrades to player/systems in future phase
+  // private runConfig?: RunConfig;
+
+  // Run statistics
+  private runStats = {
+    shardsEarned: 0,
+    enemiesKilled: 0,
+    timeExtended: 0,
+    perfectDodges: 0,
+    floorReached: 1,
+  };
+
   // DEBUG
   private debugLogCounter: number = 0;
   private debugEnabled: boolean = true;
 
   constructor() {
     super({ key: 'GameScene' });
+  }
+
+  init(_data?: RunConfig): void {
+    // TODO: Apply runConfig upgrades in future phase
+    // this.runConfig = data;
+
+    // Get progression system from registry
+    if (this.game.registry.has('progressionSystem')) {
+      this.progressionSystem = this.game.registry.get('progressionSystem') as ProgressionSystem;
+    } else {
+      // Create if it doesn't exist (for direct launches)
+      this.progressionSystem = new ProgressionSystem();
+      this.game.registry.set('progressionSystem', this.progressionSystem);
+    }
+
+    // Reset run stats
+    this.runStats = {
+      shardsEarned: 0,
+      enemiesKilled: 0,
+      timeExtended: 0,
+      perfectDodges: 0,
+      floorReached: 1,
+    };
   }
 
   create(): void {
@@ -61,6 +105,7 @@ export class GameScene extends Phaser.Scene {
     this.timeManager = new TimeManager();
     this.dungeonGenerator = new DungeonGenerator();
     this.combatSystem = new CombatSystem(this);
+    this.shadowSystem = new ShadowSystem(this);
 
     // 2. Generate dungeon
     this.dungeonData = this.dungeonGenerator.generate();
@@ -112,7 +157,7 @@ export class GameScene extends Phaser.Scene {
     this.spawnEnemies();
 
     // 5. Create HUD
-    this.hud = new HUD(this, this.timeManager);
+    this.hud = new HUD(this, this.timeManager, undefined, undefined, this.shadowSystem);
 
     // 6. Set up camera to follow player
     this.cameras.main.startFollow(this.player);
@@ -162,9 +207,15 @@ export class GameScene extends Phaser.Scene {
     this.updatePlayerMovement();
     this.player.update(time, delta);
 
-    // Update enemies (chase AI)
+    // Update enemies (chase AI with deltaTime for Bat AI state)
     this.enemies.getChildren().forEach((enemy: Phaser.GameObjects.GameObject) => {
-      if (enemy instanceof Enemy) {
+      if (enemy instanceof Bat) {
+        // Bat needs deltaTime for charge/retreat timing
+        if (enemy.active && !enemy.isDead()) {
+          enemy.update(this.player.x, this.player.y, delta / 1000);
+        }
+      } else if (enemy instanceof Enemy) {
+        // Other enemies use standard update
         if (enemy.active && !enemy.isDead()) {
           enemy.update(this.player.x, this.player.y);
         }
@@ -173,6 +224,11 @@ export class GameScene extends Phaser.Scene {
 
     // Update combat cooldowns
     this.combatSystem.update(delta / 1000);
+
+    // Update Shadow Pursuer if spawned
+    if (this.shadowPursuer && this.shadowPursuer.active) {
+      this.shadowPursuer.update(this.player.x, this.player.y);
+    }
 
     // Check room clear status
     this.checkRoomCleared();
@@ -391,6 +447,10 @@ export class GameScene extends Phaser.Scene {
 
   /**
    * Spawn enemies in combat rooms
+   * Spawns variety of enemies with weighted randomization:
+   * - 50% Slime (basic slow enemy)
+   * - 30% Bat (fast flying enemy)
+   * - 20% Rat pack (3-5 rats with pack behavior)
    */
   private spawnEnemies(): void {
     this.dungeonData.rooms
@@ -400,14 +460,116 @@ export class GameScene extends Phaser.Scene {
         for (let i = 0; i < count; i++) {
           const x = Phaser.Math.Between(room.x + 1, room.x + room.width - 2);
           const y = Phaser.Math.Between(room.y + 1, room.y + room.height - 2);
-          const slime = new Slime(
-            this,
-            x * DISPLAY.TILE_SIZE,
-            y * DISPLAY.TILE_SIZE
-          );
-          this.enemies.add(slime as unknown as Phaser.GameObjects.GameObject);
+
+          // Weighted random selection: 50% Slime, 30% Bat, 20% Rat pack
+          const rand = Math.random() * 100;
+
+          if (rand < 50) {
+            // 50% - Spawn Slime
+            const slime = new Slime(
+              this,
+              x * DISPLAY.TILE_SIZE,
+              y * DISPLAY.TILE_SIZE
+            );
+            this.enemies.add(slime as unknown as Phaser.GameObjects.GameObject);
+          } else if (rand < 80) {
+            // 30% - Spawn Bat
+            const bat = new Bat(
+              this,
+              x * DISPLAY.TILE_SIZE,
+              y * DISPLAY.TILE_SIZE
+            );
+            this.enemies.add(bat as unknown as Phaser.GameObjects.GameObject);
+          } else {
+            // 20% - Spawn Rat pack (3-5 rats)
+            const packSize = Phaser.Math.Between(3, 5);
+            const rats: Rat[] = [];
+
+            // Spawn rats in a cluster
+            for (let j = 0; j < packSize; j++) {
+              // Offset from spawn point by small amount
+              const offsetX = Phaser.Math.Between(-1, 1);
+              const offsetY = Phaser.Math.Between(-1, 1);
+              const ratX = Math.max(
+                room.x + 1,
+                Math.min(room.x + room.width - 2, x + offsetX)
+              );
+              const ratY = Math.max(
+                room.y + 1,
+                Math.min(room.y + room.height - 2, y + offsetY)
+              );
+
+              const rat = new Rat(
+                this,
+                ratX * DISPLAY.TILE_SIZE,
+                ratY * DISPLAY.TILE_SIZE
+              );
+              rats.push(rat);
+              this.enemies.add(rat as unknown as Phaser.GameObjects.GameObject);
+            }
+
+            // Set pack members for each rat
+            rats.forEach((rat) => rat.setPackMembers(rats));
+          }
         }
       });
+  }
+
+  /**
+   * Spawn Shadow Pursuer at 100% corruption
+   */
+  private spawnShadowPursuer(): void {
+    if (this.shadowPursuer) {
+      return; // Already spawned
+    }
+
+    // Find a distant uncleared combat room to spawn the Shadow
+    const unclearedRooms = this.dungeonData.rooms.filter(
+      (room) => room.type === RoomType.COMBAT && !this.clearedRooms.has(room.id)
+    );
+
+    if (unclearedRooms.length === 0) {
+      // Fallback: spawn in any room far from player
+      const room = this.dungeonData.rooms.find((r) => r.type !== RoomType.ENTRANCE);
+      if (room) {
+        const spawnX = room.centerX * DISPLAY.TILE_SIZE;
+        const spawnY = room.centerY * DISPLAY.TILE_SIZE;
+        this.shadowPursuer = new ShadowPursuer(this, spawnX, spawnY);
+      }
+      return;
+    }
+
+    // Find the room furthest from player
+    const playerTileX = Math.floor(this.player.x / DISPLAY.TILE_SIZE);
+    const playerTileY = Math.floor(this.player.y / DISPLAY.TILE_SIZE);
+
+    let furthestRoom = unclearedRooms[0];
+    let maxDistance = 0;
+
+    for (const room of unclearedRooms) {
+      const distance = Math.sqrt(
+        (room.centerX - playerTileX) ** 2 + (room.centerY - playerTileY) ** 2
+      );
+      if (distance > maxDistance) {
+        maxDistance = distance;
+        furthestRoom = room;
+      }
+    }
+
+    // Spawn Shadow in the furthest room
+    const spawnX = furthestRoom.centerX * DISPLAY.TILE_SIZE;
+    const spawnY = furthestRoom.centerY * DISPLAY.TILE_SIZE;
+    this.shadowPursuer = new ShadowPursuer(this, spawnX, spawnY);
+
+    // Set up collision with player for instant death
+    this.physics.add.overlap(this.player, this.shadowPursuer, () => {
+      if (!this.player.isDead()) {
+        this.player.takeDamage(SHADOW.PURSUER_DAMAGE);
+        this.gameOver();
+      }
+    });
+
+    console.log('Shadow Pursuer spawned at room', furthestRoom.id);
   }
 
   /**
@@ -427,14 +589,32 @@ export class GameScene extends Phaser.Scene {
       this.gameOver();
     });
 
-    // ENEMY_KILLED -> extend time
+    // ENEMY_KILLED -> extend time and award shards
     this.events.on(GameEvents.ENEMY_KILLED, (data: { timeReward: number }) => {
       this.timeManager.extendTime(data.timeReward, 'enemy_kill');
+
+      // Track stats
+      this.runStats.enemiesKilled++;
+      this.runStats.shardsEarned += SHARD_SOURCES.ENEMY_KILL;
     });
 
-    // ROOM_CLEARED -> bonus time
+    // ROOM_CLEARED -> bonus time and award shards
     this.events.on(GameEvents.ROOM_CLEARED, () => {
       this.timeManager.extendTime(TIME_EXTENSIONS.ROOM_CLEARED, 'room_cleared');
+
+      // Track stats
+      this.runStats.shardsEarned += SHARD_SOURCES.ROOM_CLEARED;
+    });
+
+    // TIME_EXTENDED -> track total time extended
+    this.timeManager.on(GameEvents.TIME_EXTENDED, (...args: unknown[]) => {
+      const data = args[0] as { amount: number };
+      this.runStats.timeExtended += data.amount;
+    });
+
+    // PERFECT_DODGE -> track stat
+    this.events.on(GameEvents.PERFECT_DODGE, () => {
+      this.runStats.perfectDodges++;
     });
 
     // PLAYER_DAMAGED -> update HUD
@@ -445,6 +625,26 @@ export class GameScene extends Phaser.Scene {
       if (this.player.isDead()) {
         this.gameOver();
       }
+    });
+
+    // CORRUPTION_CHANGED -> handle drain rate changes and shadow spawn
+    this.shadowSystem.on(GameEvents.CORRUPTION_CHANGED, (...args: unknown[]) => {
+      const data = args[0] as { corruption: number; threshold?: number };
+      // At 50% corruption, increase time drain rate
+      if (data.threshold === CORRUPTION.CREEPING_DARKNESS) {
+        this.timeManager.setDrainRate(SHADOW.DRAIN_MULTIPLIER_50);
+        console.log('Corruption reached 50% - time drains faster');
+      }
+
+      // Reset drain rate if corruption drops below 50%
+      if (data.corruption < CORRUPTION.CREEPING_DARKNESS && this.timeManager.getDrainRate() > 1.0) {
+        this.timeManager.resetDrainRate();
+      }
+    });
+
+    // SHADOW_SPAWNED -> spawn Shadow Pursuer at 100% corruption
+    this.shadowSystem.on(GameEvents.SHADOW_SPAWNED, () => {
+      this.spawnShadowPursuer();
     });
   }
 
@@ -698,6 +898,17 @@ export class GameScene extends Phaser.Scene {
     this.physics.pause();
     this.timeManager.pause();
 
+    // Save run statistics and award shards (if progression system exists)
+    if (this.progressionSystem) {
+      this.progressionSystem.earnShards(this.runStats.shardsEarned);
+      this.progressionSystem.recordRunStats({
+        enemiesKilled: this.runStats.enemiesKilled,
+        timeExtended: this.runStats.timeExtended,
+        perfectDodges: this.runStats.perfectDodges,
+        floorReached: this.runStats.floorReached,
+      });
+    }
+
     // Game over overlay
     this.add
       .rectangle(
@@ -714,7 +925,7 @@ export class GameScene extends Phaser.Scene {
     const reason = this.player.isDead() ? 'PLAYER DEFEATED' : 'TIME EXPIRED';
 
     this.add
-      .text(DISPLAY.WIDTH / 2, DISPLAY.HEIGHT / 2 - 10, reason, {
+      .text(DISPLAY.WIDTH / 2, DISPLAY.HEIGHT / 2 - 30, reason, {
         fontSize: '16px',
         color: '#ff0000',
       })
@@ -722,8 +933,27 @@ export class GameScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(1000);
 
+    // Show stats
     this.add
-      .text(DISPLAY.WIDTH / 2, DISPLAY.HEIGHT / 2 + 20, 'Press SPACE to retry', {
+      .text(DISPLAY.WIDTH / 2, DISPLAY.HEIGHT / 2 - 5, `Shards Earned: ${this.runStats.shardsEarned}`, {
+        fontSize: '8px',
+        color: '#00ffff',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(1000);
+
+    this.add
+      .text(DISPLAY.WIDTH / 2, DISPLAY.HEIGHT / 2 + 5, `Enemies Killed: ${this.runStats.enemiesKilled}`, {
+        fontSize: '8px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(1000);
+
+    this.add
+      .text(DISPLAY.WIDTH / 2, DISPLAY.HEIGHT / 2 + 25, 'Press SPACE to return to hub', {
         fontSize: '8px',
         color: '#888888',
       })
@@ -732,7 +962,10 @@ export class GameScene extends Phaser.Scene {
       .setDepth(1000);
 
     this.input.keyboard?.once('keydown-SPACE', () => {
-      this.scene.restart();
+      this.cameras.main.fadeOut(500, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => {
+        this.scene.start('HubScene');
+      });
     });
   }
 }
