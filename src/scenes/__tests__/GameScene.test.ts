@@ -107,6 +107,9 @@ class MockScene {
       setScrollFactor: vi.fn().mockReturnThis(),
       setDepth: vi.fn().mockReturnThis(),
       setName: vi.fn().mockReturnThis(),
+      setStrokeStyle: vi.fn().mockReturnThis(),
+      setFillStyle: vi.fn().mockReturnThis(),
+      setAlpha: vi.fn().mockReturnThis(),
     })),
     text: vi.fn(() => ({
       setOrigin: vi.fn().mockReturnThis(),
@@ -115,6 +118,13 @@ class MockScene {
       setName: vi.fn().mockReturnThis(),
       setText: vi.fn().mockReturnThis(),
       setColor: vi.fn().mockReturnThis(),
+      setInteractive: vi.fn().mockReturnThis(),
+      setFont: vi.fn().mockReturnThis(),
+      setFontSize: vi.fn().mockReturnThis(),
+      setAlpha: vi.fn().mockReturnThis(),
+      setVisible: vi.fn().mockReturnThis(),
+      on: vi.fn().mockReturnThis(),
+      destroy: vi.fn(),
     })),
     sprite: vi.fn(() => ({
       setOrigin: vi.fn().mockReturnThis(),
@@ -125,6 +135,13 @@ class MockScene {
       setRotation: vi.fn().mockReturnThis(),
       destroy: vi.fn(),
     })),
+    container: vi.fn(() => ({
+      add: vi.fn().mockReturnThis(),
+      setScrollFactor: vi.fn().mockReturnThis(),
+      setAlpha: vi.fn().mockReturnThis(),
+      setDepth: vi.fn().mockReturnThis(),
+      destroy: vi.fn(),
+    })),
     graphics: vi.fn(() => ({
       fillStyle: vi.fn(),
       fillRect: vi.fn(),
@@ -132,6 +149,11 @@ class MockScene {
     })),
     circle: vi.fn(() => ({
       setDepth: vi.fn().mockReturnThis(),
+      setOrigin: vi.fn().mockReturnThis(),
+      setAlpha: vi.fn().mockReturnThis(),
+      setStrokeStyle: vi.fn().mockReturnThis(),
+      setFillStyle: vi.fn().mockReturnThis(),
+      destroy: vi.fn(),
     })),
   };
   time = {

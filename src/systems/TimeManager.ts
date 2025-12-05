@@ -22,6 +22,7 @@ export class TimeManager {
   private criticalEmitted: boolean;
   private expiredEmitted: boolean;
   private listeners: Map<string, Set<(...args: unknown[]) => void>>;
+  private drainRate: number;
   private static readonly MAX_RECENT_EXTENSIONS = 5;
 
   constructor() {
@@ -32,6 +33,7 @@ export class TimeManager {
     this.criticalEmitted = false;
     this.expiredEmitted = false;
     this.listeners = new Map();
+    this.drainRate = TIME.DRAIN_RATE;
   }
 
   /**
@@ -42,7 +44,7 @@ export class TimeManager {
     if (this.paused || count <= 0) return;
 
     const previousTime = this.timeRemaining;
-    this.timeRemaining = Math.max(0, this.timeRemaining - TIME.DRAIN_RATE * count);
+    this.timeRemaining = Math.max(0, this.timeRemaining - this.drainRate * count);
 
     // Emit tick event
     this.emit(GameEvents.TIME_TICK, {
@@ -136,6 +138,28 @@ export class TimeManager {
    */
   getRecentExtensions(): TimeExtension[] {
     return [...this.recentExtensions];
+  }
+
+  /**
+   * Set the drain rate multiplier
+   * @param rate New drain rate (default: 1.0)
+   */
+  setDrainRate(rate: number): void {
+    this.drainRate = rate;
+  }
+
+  /**
+   * Get the current drain rate
+   */
+  getDrainRate(): number {
+    return this.drainRate;
+  }
+
+  /**
+   * Reset drain rate to default
+   */
+  resetDrainRate(): void {
+    this.drainRate = TIME.DRAIN_RATE;
   }
 
   /**

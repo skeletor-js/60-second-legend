@@ -7,7 +7,9 @@
 import Phaser from 'phaser';
 import { Player } from '@entities/Player';
 import { Enemy, EnemyLogic } from '@entities/Enemy';
-import { COMBAT } from '@config/Constants';
+import { COMBAT, GameEvents } from '@config/Constants';
+import { CombatMechanics } from './CombatMechanics';
+import { WeaponSystem, WeaponAttackData } from './WeaponSystem';
 
 /**
  * Attack data interface
@@ -173,10 +175,20 @@ export class CombatLogic {
 export class CombatSystem {
   private scene: Phaser.Scene;
   private logic: CombatLogic;
+  private mechanics: CombatMechanics;
+  private weaponSystem: WeaponSystem | null = null;
 
   constructor(scene: Phaser.Scene, config?: Partial<CombatConfig>) {
     this.scene = scene;
     this.logic = new CombatLogic(config);
+    this.mechanics = new CombatMechanics(scene);
+  }
+
+  /**
+   * Set the weapon system to use for attacks
+   */
+  setWeaponSystem(weaponSystem: WeaponSystem): void {
+    this.weaponSystem = weaponSystem;
   }
 
   /**
@@ -195,7 +207,16 @@ export class CombatSystem {
         const p = _playerObj as unknown as Player;
         const e = _enemyObj as unknown as Enemy;
         if (!e.isDead()) {
-          p.takeDamage(e.getDamage());
+          // Update dodge timing for perfect dodge window
+          this.mechanics.updateDodgeTime();
+
+          // Try to take damage (may be blocked by i-frames)
+          const damaged = p.takeDamage(e.getDamage());
+
+          if (damaged) {
+            // Player was damaged, reset kill streak
+            this.mechanics.resetKillStreak();
+          }
         }
       }
     );
@@ -216,22 +237,46 @@ export class CombatSystem {
     enemies: Phaser.Physics.Arcade.Group,
     direction: { x: number; y: number }
   ): number {
-    const attackData = this.logic.startAttack(player.x, player.y, direction);
+    // Use weapon system if available, otherwise use legacy system
+    let attackData: (AttackData | WeaponAttackData) | null;
+    let weaponTimeReward = 0;
+
+    if (this.weaponSystem) {
+      attackData = this.weaponSystem.attack(player.x, player.y, direction);
+    } else {
+      attackData = this.logic.startAttack(player.x, player.y, direction);
+    }
 
     if (!attackData) {
       return 0; // On cooldown
     }
 
+    // Get damage multiplier from perfect dodge
+    const baseDamage = attackData.damage;
+    const finalDamage = this.mechanics.calculateDamage(baseDamage);
+
+    // Consume perfect dodge after using it
+    if (this.mechanics.isPerfectDodgeActive()) {
+      this.mechanics.consumePerfectDodge();
+    }
+
     let totalTimeReward = 0;
+    let hitCount = 0;
+    let killCount = 0;
 
     // Check each enemy
     enemies.getChildren().forEach((enemyObj) => {
       const enemy = enemyObj as Enemy;
       if (enemy.active && !enemy.isDead()) {
         // Check if in range
-        if (this.logic.isInRange(attackData, enemy.x, enemy.y)) {
+        const inRange = this.isInAttackRange(attackData, enemy.x, enemy.y);
+
+        if (inRange) {
+          hitCount++;
+
           // Apply knockback
-          const knockback = this.logic.calculateKnockback(
+          const knockback = this.calculateKnockbackForAttack(
+            attackData,
             player.x,
             player.y,
             enemy.x,
@@ -244,30 +289,141 @@ export class CombatSystem {
             body.setVelocity(knockback.x, knockback.y);
           }
 
-          // Apply damage and check for kill
-          const wasKilled = enemy.takeDamage(attackData.damage);
+          // Check for execute
+          const canExecute = this.mechanics.canExecute(
+            enemy.getHealth(),
+            enemy.getMaxHealth()
+          );
+
+          let wasKilled: boolean;
+          let executeBonus = 0;
+
+          if (canExecute) {
+            // Execute: instant kill
+            wasKilled = enemy.takeDamage(enemy.getHealth());
+            if (wasKilled) {
+              const executeData = this.mechanics.processExecute();
+              executeBonus = executeData.bonusTime;
+
+              // Emit execute event for visual feedback
+              this.scene.events.emit('combat:execute', {
+                enemy,
+                bonusTime: executeBonus,
+              });
+            }
+          } else {
+            // Normal damage
+            wasKilled = enemy.takeDamage(finalDamage);
+          }
 
           if (wasKilled) {
-            totalTimeReward += enemy.getTimeReward();
+            killCount++;
+            totalTimeReward += enemy.getTimeReward() + executeBonus;
+            this.mechanics.registerKill();
+
+            // Add weapon-specific time reward
+            if (this.weaponSystem) {
+              weaponTimeReward += this.weaponSystem.getCurrentWeapon().getTimeReward(true);
+              this.weaponSystem.recordHit(true);
+            }
+          } else {
+            // Non-killing hit
+            if (this.weaponSystem) {
+              weaponTimeReward += this.weaponSystem.getCurrentWeapon().getTimeReward(false);
+              this.weaponSystem.recordHit(false);
+            }
           }
         }
       }
     });
 
-    return totalTimeReward;
+    // Register multi-kill for weapon combo
+    if (this.weaponSystem && killCount >= 2) {
+      this.weaponSystem.recordMultiKill(killCount);
+    }
+
+    // Register hits for combo system
+    if (hitCount > 0) {
+      for (let i = 0; i < hitCount; i++) {
+        this.mechanics.registerHit();
+      }
+    }
+
+    return totalTimeReward + weaponTimeReward;
   }
 
   /**
-   * Update combat system (handle cooldowns)
+   * Check if target is in range (handles both AttackData and WeaponAttackData)
+   */
+  private isInAttackRange(
+    attackData: AttackData | WeaponAttackData,
+    targetX: number,
+    targetY: number
+  ): boolean {
+    const dx = targetX - attackData.x;
+    const dy = targetY - attackData.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // Check standard range
+    if (distance <= attackData.range) {
+      return true;
+    }
+
+    // Check AOE radius if it exists
+    if ('aoeRadius' in attackData && attackData.aoeRadius) {
+      return distance <= attackData.aoeRadius;
+    }
+
+    return false;
+  }
+
+  /**
+   * Calculate knockback (handles both AttackData and WeaponAttackData)
+   */
+  private calculateKnockbackForAttack(
+    attackData: AttackData | WeaponAttackData,
+    attackerX: number,
+    attackerY: number,
+    targetX: number,
+    targetY: number
+  ): { x: number; y: number } {
+    const dx = targetX - attackerX;
+    const dy = targetY - attackerY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // Get knockback force
+    const knockbackForce = 'knockback' in attackData ? attackData.knockback : COMBAT.KNOCKBACK_FORCE;
+
+    // Handle zero distance case
+    if (distance === 0) {
+      return { x: knockbackForce, y: 0 };
+    }
+
+    // Normalize and scale by knockback force
+    return {
+      x: (dx / distance) * knockbackForce,
+      y: (dy / distance) * knockbackForce,
+    };
+  }
+
+  /**
+   * Update combat system (handle cooldowns and mechanics)
    */
   update(deltaTime: number): void {
     this.logic.update(deltaTime);
+    this.mechanics.update(deltaTime * 1000); // Convert to ms for mechanics
+    if (this.weaponSystem) {
+      this.weaponSystem.update(deltaTime);
+    }
   }
 
   /**
    * Check if attack is ready
    */
   canAttack(): boolean {
+    if (this.weaponSystem) {
+      return this.weaponSystem.canAttack();
+    }
     return this.logic.canAttack();
   }
 
@@ -276,5 +432,43 @@ export class CombatSystem {
    */
   getLogic(): CombatLogic {
     return this.logic;
+  }
+
+  /**
+   * Get the combat mechanics instance
+   */
+  getMechanics(): CombatMechanics {
+    return this.mechanics;
+  }
+
+  /**
+   * Get the weapon system instance
+   */
+  getWeaponSystem(): WeaponSystem | null {
+    return this.weaponSystem;
+  }
+
+  /**
+   * Handle player taking damage (resets kill streak and weapon combo)
+   */
+  onPlayerDamaged(): void {
+    this.mechanics.resetKillStreak();
+    if (this.weaponSystem) {
+      this.weaponSystem.onPlayerDamaged();
+    }
+  }
+
+  /**
+   * Attempt perfect dodge
+   */
+  attemptPerfectDodge(): void {
+    this.mechanics.attemptPerfectDodge();
+  }
+
+  /**
+   * Update dodge timing (called when enemy would damage player)
+   */
+  updateDodgeTime(): void {
+    this.mechanics.updateDodgeTime();
   }
 }

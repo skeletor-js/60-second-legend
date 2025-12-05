@@ -30,6 +30,10 @@ export class PlayerLogic {
   private facingX: number = 1; // Default facing right
   private facingY: number = 0;
 
+  // Relic-related modifiers
+  private speedModifier: number = 0; // Additive speed bonus (0.2 = +20%)
+  private damageModifier: number = 0; // Additive damage bonus
+
   constructor(config: PlayerConfig) {
     this.maxHealth = config.maxHealth;
     this.health = config.maxHealth;
@@ -55,9 +59,12 @@ export class PlayerLogic {
     // Calculate magnitude of input vector
     const length = Math.sqrt(inputX * inputX + inputY * inputY);
 
-    // Normalize and scale by move speed
-    const velocityX = (inputX / length) * this.moveSpeed;
-    const velocityY = (inputY / length) * this.moveSpeed;
+    // Apply speed modifiers from relics
+    const modifiedSpeed = this.moveSpeed * (1 + this.speedModifier);
+
+    // Normalize and scale by modified move speed
+    const velocityX = (inputX / length) * modifiedSpeed;
+    const velocityY = (inputY / length) * modifiedSpeed;
 
     return { x: velocityX, y: velocityY };
   }
@@ -105,10 +112,18 @@ export class PlayerLogic {
     }
 
     // Activate i-frames
-    this.iFrameActive = true;
-    this.iFrameTimer = this.iFrameDuration;
+    this.activateIFrames(this.iFrameDuration);
 
     return true;
+  }
+
+  /**
+   * Activate invincibility frames
+   * Can be called by perfect dodge or damage
+   */
+  activateIFrames(duration: number): void {
+    this.iFrameActive = true;
+    this.iFrameTimer = duration;
   }
 
   /**
@@ -157,6 +172,48 @@ export class PlayerLogic {
    */
   isDead(): boolean {
     return this.dead;
+  }
+
+  /**
+   * Set speed modifier (from relics)
+   */
+  setSpeedModifier(modifier: number): void {
+    this.speedModifier = modifier;
+  }
+
+  /**
+   * Get current speed modifier
+   */
+  getSpeedModifier(): number {
+    return this.speedModifier;
+  }
+
+  /**
+   * Set damage modifier (from relics)
+   */
+  setDamageModifier(modifier: number): void {
+    this.damageModifier = modifier;
+  }
+
+  /**
+   * Get current damage modifier
+   */
+  getDamageModifier(): number {
+    return this.damageModifier;
+  }
+
+  /**
+   * Heal the player
+   * @param amount Amount of health to restore
+   * @returns true if healed, false if already at max health
+   */
+  heal(amount: number): boolean {
+    if (this.health >= this.maxHealth || amount <= 0) {
+      return false;
+    }
+
+    this.health = Math.min(this.maxHealth, this.health + amount);
+    return true;
   }
 }
 
@@ -231,6 +288,13 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   /**
+   * Activate invincibility frames (for perfect dodge)
+   */
+  activateIFrames(duration: number): void {
+    this.logic.activateIFrames(duration);
+  }
+
+  /**
    * Handle player death
    */
   private onDeath(): void {
@@ -298,5 +362,50 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
    */
   getFacingDirection(): { x: number; y: number } {
     return this.logic.getFacingDirection();
+  }
+
+  /**
+   * Set speed modifier (from relics)
+   */
+  setSpeedModifier(modifier: number): void {
+    this.logic.setSpeedModifier(modifier);
+  }
+
+  /**
+   * Get current speed modifier
+   */
+  getSpeedModifier(): number {
+    return this.logic.getSpeedModifier();
+  }
+
+  /**
+   * Set damage modifier (from relics)
+   */
+  setDamageModifier(modifier: number): void {
+    this.logic.setDamageModifier(modifier);
+  }
+
+  /**
+   * Get current damage modifier
+   */
+  getDamageModifier(): number {
+    return this.logic.getDamageModifier();
+  }
+
+  /**
+   * Heal the player
+   */
+  heal(amount: number): boolean {
+    const healed = this.logic.heal(amount);
+
+    if (healed) {
+      // Visual feedback - green flash
+      this.setTint(0x00ff00);
+      this.scene.time.delayedCall(100, () => {
+        this.clearTint();
+      });
+    }
+
+    return healed;
   }
 }

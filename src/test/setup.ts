@@ -5,6 +5,42 @@
 
 import { vi } from 'vitest';
 
+// Mock Phaser EventEmitter
+class MockEventEmitter {
+  private listeners: Map<string, Set<(...args: unknown[]) => void>> = new Map();
+
+  on(event: string, callback: (...args: unknown[]) => void): this {
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, new Set());
+    }
+    this.listeners.get(event)!.add(callback);
+    return this;
+  }
+
+  off(event: string, callback: (...args: unknown[]) => void): this {
+    this.listeners.get(event)?.delete(callback);
+    return this;
+  }
+
+  emit(event: string, ...args: unknown[]): boolean {
+    const callbacks = this.listeners.get(event);
+    if (callbacks) {
+      callbacks.forEach((cb) => cb(...args));
+      return true;
+    }
+    return false;
+  }
+
+  removeAllListeners(event?: string): this {
+    if (event) {
+      this.listeners.delete(event);
+    } else {
+      this.listeners.clear();
+    }
+    return this;
+  }
+}
+
 // Mock Phaser globally since it requires browser APIs
 vi.mock('phaser', () => ({
   default: {
@@ -15,6 +51,9 @@ vi.mock('phaser', () => ({
     },
     Game: class MockGame {
       constructor(_config: unknown) {}
+    },
+    Events: {
+      EventEmitter: MockEventEmitter,
     },
     GameObjects: {
       Container: class MockContainer {
@@ -59,6 +98,9 @@ vi.mock('phaser', () => ({
   },
   Game: class MockGame {
     constructor(_config: unknown) {}
+  },
+  Events: {
+    EventEmitter: MockEventEmitter,
   },
   GameObjects: {
     Container: class MockContainer {
