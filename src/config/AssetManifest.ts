@@ -112,6 +112,20 @@ export const SPRITE_SHEETS: SpriteSheetConfig[] = [
     frameWidth: 16,
     frameHeight: 16,
   },
+
+  // Tilesets (loaded as spritesheets for proper tile extraction)
+  {
+    key: 'tileset-walls',
+    path: 'assets/SGQ_Dungeon/grounds_and_walls/walls.png',
+    frameWidth: 16,
+    frameHeight: 16,
+  },
+  {
+    key: 'tileset-grounds',
+    path: 'assets/SGQ_Dungeon/grounds_and_walls/grounds.png',
+    frameWidth: 16,
+    frameHeight: 16,
+  },
 ];
 
 // =============================================================================
@@ -119,11 +133,6 @@ export const SPRITE_SHEETS: SpriteSheetConfig[] = [
 // =============================================================================
 
 export const IMAGES: ImageConfig[] = [
-  // Tilesets
-  { key: 'tileset-grounds', path: 'assets/SGQ_Dungeon/grounds_and_walls/grounds.png' },
-  { key: 'tileset-surround', path: 'assets/SGQ_Dungeon/grounds_and_walls/surground.png' },
-  { key: 'tileset-walls', path: 'assets/SGQ_Dungeon/grounds_and_walls/walls.png' },
-
   // UI
   { key: 'ui-inventory', path: 'assets/SGQ_ui/game_ui/inventory.png' },
   { key: 'ui-keyboard', path: 'assets/SGQ_ui/inputs/keyboard.png' },

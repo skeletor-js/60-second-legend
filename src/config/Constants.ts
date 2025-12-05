@@ -92,6 +92,14 @@ export const COMBAT = {
   EXECUTE_THRESHOLD: 0.2,
   /** Bonus time for execute kill */
   EXECUTE_TIME_BONUS: 2,
+  /** Memory Blade base damage */
+  MEMORY_BLADE_DAMAGE: 3,
+  /** Attack cooldown in seconds */
+  ATTACK_COOLDOWN: 0.4,
+  /** Attack range in pixels */
+  ATTACK_RANGE: 24,
+  /** Knockback force in pixels per second */
+  KNOCKBACK_FORCE: 150,
 } as const;
 
 // =============================================================================
