@@ -132,14 +132,6 @@ export const SPRITE_SHEETS: SpriteSheetConfig[] = [
     frameWidth: 16,
     frameHeight: 16,
   },
-
-  // 1-Bit Roguelike Tileset (multi-palette with Fantasy themes)
-  {
-    key: 'tileset-1bit',
-    path: 'assets/The Roguelike 1-Bit Alpha.png',
-    frameWidth: 16,
-    frameHeight: 16,
-  },
 ];
 
 // =============================================================================

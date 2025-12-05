@@ -118,10 +118,6 @@ export function createMockScene() {
         setOrigin: vi.fn().mockReturnThis(),
         setScale: vi.fn().mockReturnThis(),
         setDepth: vi.fn().mockReturnThis(),
-        setTexture: vi.fn().mockReturnThis(),
-        setFrame: vi.fn().mockReturnThis(),
-        setAlpha: vi.fn().mockReturnThis(),
-        setScrollFactor: vi.fn().mockReturnThis(),
         play: vi.fn().mockReturnThis(),
         destroy: vi.fn(),
       })),
@@ -211,8 +207,6 @@ export function createMockSprite() {
     setTint: vi.fn().mockReturnThis(),
     clearTint: vi.fn().mockReturnThis(),
     setAlpha: vi.fn().mockReturnThis(),
-    setTexture: vi.fn().mockReturnThis(),
-    setFrame: vi.fn().mockReturnThis(),
     destroy: vi.fn(),
   };
 }

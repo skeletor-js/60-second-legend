@@ -5,7 +5,6 @@
 
 import { Enemy, EnemyConfig } from '../Enemy';
 import { TIME_EXTENSIONS } from '../../config/Constants';
-import { TILESET } from '../../config/TilesetMapping';
 
 /**
  * Slime configuration
@@ -25,8 +24,7 @@ const SLIME_CONFIG: EnemyConfig = {
  * Slime - Basic enemy that chases the player
  */
 export class Slime extends Enemy {
-  constructor(scene: Phaser.Scene, x: number, y: number, frame?: number) {
-    super(scene, x, y, SLIME_CONFIG, TILESET.KEY, frame);
-    this.enemyType = 'slime';
+  constructor(scene: Phaser.Scene, x: number, y: number) {
+    super(scene, x, y, SLIME_CONFIG, 'enemy-slime');
   }
 }

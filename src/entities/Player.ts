@@ -5,7 +5,6 @@
 
 import Phaser from 'phaser';
 import { PLAYER, DISPLAY, DASH, GameEvents } from '../config/Constants';
-import { TILESET, PaletteFrameMapping } from '../config/TilesetMapping';
 
 /**
  * Player configuration interface
@@ -309,10 +308,9 @@ export class PlayerLogic {
 export class Player extends Phaser.Physics.Arcade.Sprite {
   private logic: PlayerLogic;
   private dashVelocity: { x: number; y: number } | null = null;
-  private currentFrame: number = 0;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, texture: string = TILESET.KEY, frame?: number) {
-    super(scene, x, y, texture, frame);
+  constructor(scene: Phaser.Scene, x: number, y: number, texture: string = 'player') {
+    super(scene, x, y, texture);
 
     // Initialize logic
     this.logic = new PlayerLogic({
@@ -547,24 +545,5 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
    */
   isDashing(): boolean {
     return this.logic.getIsDashing();
-  }
-
-  /**
-   * Update player sprite based on current floor palette
-   * @param frameMapping The frame mapping for the current palette
-   */
-  updateSprite(frameMapping: PaletteFrameMapping): void {
-    const playerFrames = frameMapping.characters.player;
-    if (playerFrames && playerFrames.length > 0) {
-      this.currentFrame = playerFrames[0];
-      this.setTexture(TILESET.KEY, this.currentFrame);
-    }
-  }
-
-  /**
-   * Get the current sprite frame
-   */
-  getCurrentFrame(): number {
-    return this.currentFrame;
   }
 }
